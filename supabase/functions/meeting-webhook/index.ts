@@ -33,7 +33,7 @@ serve(async (req) => {
     const response = await fetch(`https://api.symbl.ai/v1/conversations/${conversationId}`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${await getSymblToken()}`,
+        'Authorization': `Bearer ${await getSymblToken(supabase)}`,
         'Content-Type': 'application/json',
       },
     });
@@ -48,7 +48,7 @@ serve(async (req) => {
     const insightsResponse = await fetch(`https://api.symbl.ai/v1/conversations/${conversationId}/insights`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${await getSymblToken()}`,
+        'Authorization': `Bearer ${await getSymblToken(supabase)}`,
         'Content-Type': 'application/json',
       },
     });
@@ -119,10 +119,23 @@ function generateSummary(insights: any[] = []): string {
     : "No summary available yet.";
 }
 
-// Get Symbl token
-async function getSymblToken(): Promise<string> {
-  const symblAppId = Deno.env.get("SYMBL_APP_ID");
-  const symblAppSecret = Deno.env.get("SYMBL_APP_SECRET");
+// Get Symbl token from stored credentials
+async function getSymblToken(supabase): Promise<string> {
+  // Get credentials from settings table
+  const { data: appIdData } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', 'symbl_app_id')
+    .single();
+  
+  const { data: appSecretData } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', 'symbl_app_secret')
+    .single();
+  
+  const symblAppId = appIdData?.value;
+  const symblAppSecret = appSecretData?.value;
   
   if (!symblAppId || !symblAppSecret) {
     throw new Error("Missing Symbl API credentials");

@@ -107,6 +107,12 @@ serve(async (req) => {
           
           if (!response.ok) {
             console.error("Symbl credential verification failed:", await response.text());
+          } else {
+            console.log("Symbl credential verification successful");
+            // Store the token for future use
+            const data = await response.json();
+            SYMBL_TOKEN = data.accessToken;
+            tokenExpiration = Date.now() + 14 * 60 * 1000; // 14 minutes from now
           }
         } catch (error) {
           console.error("Error verifying Symbl credentials:", error);

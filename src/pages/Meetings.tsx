@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, CalendarCheck } from "lucide-react";
 import Navigation from "@/components/Navigation";
@@ -27,33 +27,36 @@ const Meetings = () => {
     queryKey: ['meetings'],
     queryFn: fetchMeetings,
     refetchInterval: 30000, // Refetch every 30 seconds to check for updates
+    retry: 3, // Retry 3 times if the request fails
   });
 
-  useEffect(() => {
-    // Check if Symbl credentials are set
-    const checkCredentials = async () => {
-      try {
-        const areSet = await checkSymblCredentials();
-        setCredentialsSet(areSet);
-        if (!areSet) {
-          toast({
-            title: "Symbl Credentials Required",
-            description: "Please set your Symbl credentials to upload meeting recordings.",
-            variant: "destructive",
-          });
-        }
-      } catch (err) {
-        console.error("Error checking credentials:", err);
+  const checkCredentials = useCallback(async () => {
+    try {
+      const areSet = await checkSymblCredentials();
+      console.log("Credentials check result:", areSet);
+      setCredentialsSet(areSet);
+      
+      if (!areSet) {
         toast({
-          title: "Credential Check Failed",
-          description: "Could not verify Symbl credentials status.",
+          title: "Symbl Credentials Required",
+          description: "Please set your Symbl credentials to upload meeting recordings.",
           variant: "destructive",
         });
       }
-    };
-    
-    checkCredentials();
+    } catch (err) {
+      console.error("Error checking credentials:", err);
+      toast({
+        title: "Credential Check Failed",
+        description: "Could not verify Symbl credentials status.",
+        variant: "destructive",
+      });
+    }
   }, [toast]);
+
+  useEffect(() => {
+    // Check if Symbl credentials are set
+    checkCredentials();
+  }, [checkCredentials]);
 
   const handleCredentialsUpdate = async (isSet: boolean) => {
     setCredentialsSet(isSet);
