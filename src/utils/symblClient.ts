@@ -53,19 +53,22 @@ export const fetchMeetings = async (): Promise<Meeting[]> => {
       let contactId: string | null = null;
       let followUpSent: boolean = false;
       
-      if (meeting.raw_data && typeof meeting.raw_data === 'object') {
+      if (meeting.raw_data && typeof meeting.raw_data === 'object' && !Array.isArray(meeting.raw_data)) {
+        // Type guard to ensure raw_data is an object and not an array
+        const rawDataObj = meeting.raw_data as Record<string, unknown>;
+        
         // Check if tags exists and is an array
-        if (meeting.raw_data.tags && Array.isArray(meeting.raw_data.tags)) {
-          tags = meeting.raw_data.tags;
+        if (rawDataObj.tags && Array.isArray(rawDataObj.tags)) {
+          tags = rawDataObj.tags as string[];
         }
         
         // Check if contact_id exists
-        if (meeting.raw_data.contact_id && typeof meeting.raw_data.contact_id === 'string') {
-          contactId = meeting.raw_data.contact_id;
+        if (rawDataObj.contact_id && typeof rawDataObj.contact_id === 'string') {
+          contactId = rawDataObj.contact_id;
         }
         
         // Check if follow_up_sent exists
-        if (meeting.raw_data.follow_up_sent === true) {
+        if (rawDataObj.follow_up_sent === true) {
           followUpSent = true;
         }
       }
@@ -115,9 +118,12 @@ export const sendFollowUp = async (meetingId: string, contactId: string | null):
         
       if (fetchError) throw fetchError;
       
-      // Prepare the updated raw_data object
+      // Prepare the updated raw_data object with proper type checking
+      const existingRawData = meeting?.raw_data;
       const updatedRawData = {
-        ...(meeting?.raw_data && typeof meeting.raw_data === 'object' ? meeting.raw_data : {}),
+        ...(existingRawData && typeof existingRawData === 'object' && !Array.isArray(existingRawData) 
+          ? existingRawData as Record<string, unknown> 
+          : {}),
         follow_up_sent: true
       };
       
@@ -147,13 +153,15 @@ export const addTag = async (meetingId: string, tag: string): Promise<boolean> =
     if (fetchError) throw fetchError;
     
     // Initialize raw_data object if it doesn't exist or isn't an object
-    const rawData = (meeting?.raw_data && typeof meeting.raw_data === 'object') 
-      ? meeting.raw_data 
-      : {};
+    // Use proper type guard to check if raw_data is an object and not an array
+    let rawData: Record<string, unknown> = {};
+    if (meeting?.raw_data && typeof meeting.raw_data === 'object' && !Array.isArray(meeting.raw_data)) {
+      rawData = meeting.raw_data as Record<string, unknown>;
+    }
     
     // Initialize tags array if it doesn't exist or isn't an array
     const currentTags = (rawData.tags && Array.isArray(rawData.tags)) 
-      ? rawData.tags 
+      ? rawData.tags as string[]
       : [];
     
     if (!currentTags.includes(tag)) {
