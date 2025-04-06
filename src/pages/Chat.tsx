@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect } from "react";
-import Navigation from "@/components/Navigation";
 import ChatBot from "@/components/ChatBot";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -54,8 +53,7 @@ const Chat = () => {
   };
   
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
-      <Navigation />
+    <div className="min-h-[calc(100vh-64px)] bg-slate-900 text-white">
       <ScrollArea className="h-[calc(100vh-64px)] w-full touch-scroll">
         <div className="container py-4 md:py-8 max-w-5xl mx-auto px-4 md:px-6">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-2">

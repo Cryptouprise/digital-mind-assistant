@@ -16,20 +16,20 @@ const Navigation = () => {
   const toggleMobileMenu = () => setMobileMenuOpen(prev => !prev);
 
   return (
-    <nav className="bg-slate-950 text-white p-4 shadow-md w-full">
+    <nav className="bg-slate-950 text-white p-4 shadow-md w-full sticky top-0 z-50">
       <div className="container mx-auto flex justify-between items-center">
         <div className="flex items-center gap-2">
           <BrainCircuit className="h-6 w-6 text-blue-400" />
           <h1 className="text-xl font-bold">Jarvis AI</h1>
         </div>
         
-        {/* Mobile menu button - made more prominent */}
+        {/* Mobile menu button - made more visible */}
         <div className="md:hidden">
           <Button 
-            variant="ghost" 
+            variant="secondary" 
             size="icon" 
             onClick={toggleMobileMenu} 
-            className="text-white border border-slate-700 hover:bg-slate-800"
+            className="text-white bg-blue-600 hover:bg-blue-700 border-2 border-blue-500"
           >
             {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </Button>
@@ -67,28 +67,28 @@ const Navigation = () => {
       
       {/* Mobile menu - improved visibility and styling */}
       {mobileMenuOpen && (
-        <div className="md:hidden mt-4 pb-2 bg-slate-900 rounded-lg border border-slate-800">
+        <div className="md:hidden mt-4 pb-2 bg-blue-900/30 rounded-lg border-2 border-blue-700 absolute left-0 right-0 mx-4">
           <div className="flex flex-col space-y-2 p-2">
             <Link to="/" 
-              className="block py-3 px-4 hover:bg-slate-800 rounded transition-colors"
+              className="block py-3 px-4 hover:bg-blue-800 rounded transition-colors"
               onClick={() => setMobileMenuOpen(false)}
             >
               Dashboard
             </Link>
             <Link to="/meetings" 
-              className="block py-3 px-4 hover:bg-slate-800 rounded transition-colors"
+              className="block py-3 px-4 hover:bg-blue-800 rounded transition-colors"
               onClick={() => setMobileMenuOpen(false)}
             >
               Meetings
             </Link>
             <Link to="/chat" 
-              className="block py-3 px-4 hover:bg-slate-800 rounded transition-colors"
+              className="block py-3 px-4 hover:bg-blue-800 rounded transition-colors"
               onClick={() => setMobileMenuOpen(false)}
             >
               Chat
             </Link>
             <Link to="/settings" 
-              className="block py-3 px-4 hover:bg-slate-800 rounded transition-colors"
+              className="block py-3 px-4 hover:bg-blue-800 rounded transition-colors"
               onClick={() => setMobileMenuOpen(false)}
             >
               Settings
