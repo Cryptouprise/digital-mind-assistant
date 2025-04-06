@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.43.2';
@@ -32,28 +33,80 @@ serve(async (req) => {
         // Process URL upload
         console.log("Processing URL upload:", url);
         
+        // Validate URL format
+        try {
+          new URL(url); // Will throw if URL is invalid
+        } catch (e) {
+          throw new Error(`Invalid URL format: ${e.message}`);
+        }
+        
+        // Prepare webhook URL with appropriate fallback
+        const effectiveWebhookUrl = webhookUrl || 
+          `${new URL(req.url).origin}/meeting-webhook`;
+        
+        console.log("Using webhook URL:", effectiveWebhookUrl);
+        
+        const payload = {
+          url,
+          webhookUrl: effectiveWebhookUrl,
+          name: "Jarvis Meeting Recording",
+          options: {
+            transcriptFormat: "text",
+          },
+        };
+        
+        console.log("Sending payload to Symbl:", JSON.stringify(payload));
+        
         const response = await fetch("https://api.symbl.ai/v1/process/audio/url", {
           method: "POST",
           headers: {
             "Authorization": `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            url,
-            webhookUrl: webhookUrl || `${req.url.split('/symbl-client')[0]}/meeting-webhook`,
-            name: "Jarvis Meeting Recording",
-          }),
+          body: JSON.stringify(payload),
         });
 
         if (!response.ok) {
-          const errorText = await response.text();
-          console.error("Symbl API error response for URL upload:", errorText);
-          throw new Error(`Symbl API error: ${errorText}`);
+          const errorData = await response.text();
+          let errorMessage;
+          try {
+            // Try to parse as JSON to get a better error message
+            const parsedError = JSON.parse(errorData);
+            errorMessage = parsedError.message || errorData;
+          } catch {
+            errorMessage = errorData;
+          }
+          console.error("Symbl API error response for URL upload:", errorMessage);
+          throw new Error(`Symbl API error: ${errorMessage}`);
         }
 
         const result = await response.json();
         
         console.log("Symbl audio URL upload successful:", result);
+        
+        // Create a meeting record
+        if (result.conversationId) {
+          const meetingData = {
+            id: result.conversationId,
+            title: `Uploaded Recording ${new Date().toISOString().slice(0, 10)}`,
+            date: new Date().toISOString(),
+            status: 'processing',
+            symbl_conversation_id: result.conversationId,
+            raw_data: {
+              source_url: url,
+              created_at: new Date().toISOString(),
+              job_id: result.jobId
+            }
+          };
+          
+          const { data, error } = await supabase
+            .from('meetings')
+            .upsert([meetingData], { onConflict: 'id' });
+            
+          if (error) {
+            console.error("Error creating meeting record:", error);
+          }
+        }
         
         return new Response(
           JSON.stringify(result),
@@ -69,11 +122,17 @@ serve(async (req) => {
         // Create a blob with the binary data
         const file = new Blob([binaryData]);
         
+        // Prepare webhook URL with appropriate fallback
+        const effectiveWebhookUrl = webhookUrl || 
+          `${new URL(req.url).origin}/meeting-webhook`;
+          
+        console.log("Using webhook URL:", effectiveWebhookUrl);
+        
         // Create form data
         const formData = new FormData();
         formData.append('name', fileName);
         formData.append('file', file, fileName);
-        formData.append('webhookUrl', webhookUrl || `${req.url.split('/symbl-client')[0]}/meeting-webhook`);
+        formData.append('webhookUrl', effectiveWebhookUrl);
         
         const response = await fetch("https://api.symbl.ai/v1/process/audio", {
           method: "POST",
@@ -84,14 +143,46 @@ serve(async (req) => {
         });
         
         if (!response.ok) {
-          const errorText = await response.text();
-          console.error("Symbl API error response for file upload:", errorText);
-          throw new Error(`Symbl API error: ${errorText}`);
+          const errorData = await response.text();
+          let errorMessage;
+          try {
+            // Try to parse as JSON to get a better error message
+            const parsedError = JSON.parse(errorData);
+            errorMessage = parsedError.message || errorData;
+          } catch {
+            errorMessage = errorData;
+          }
+          console.error("Symbl API error response for file upload:", errorMessage);
+          throw new Error(`Symbl API error: ${errorMessage}`);
         }
         
         const result = await response.json();
         
         console.log("Symbl file upload successful:", result);
+        
+        // Create a meeting record
+        if (result.conversationId) {
+          const meetingData = {
+            id: result.conversationId,
+            title: `Uploaded File: ${fileName}`,
+            date: new Date().toISOString(),
+            status: 'processing',
+            symbl_conversation_id: result.conversationId,
+            raw_data: {
+              file_name: fileName,
+              created_at: new Date().toISOString(),
+              job_id: result.jobId
+            }
+          };
+          
+          const { data, error } = await supabase
+            .from('meetings')
+            .upsert([meetingData], { onConflict: 'id' });
+            
+          if (error) {
+            console.error("Error creating meeting record:", error);
+          }
+        }
         
         return new Response(
           JSON.stringify(result),
@@ -332,29 +423,42 @@ async function getSymblToken(): Promise<string> {
     throw new Error("Missing Symbl API credentials. Please set SYMBL_APP_ID and SYMBL_APP_SECRET in your credentials.");
   }
 
-  const response = await fetch("https://api.symbl.ai/oauth2/token:generate", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      type: "application",
-      appId: symblAppId,
-      appSecret: symblAppSecret,
-    }),
-  });
+  try {
+    const response = await fetch("https://api.symbl.ai/oauth2/token:generate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        type: "application",
+        appId: symblAppId,
+        appSecret: symblAppSecret,
+      }),
+    });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error("Symbl token error:", errorText);
-    throw new Error(`Failed to get Symbl token: ${errorText}`);
+    if (!response.ok) {
+      const errorData = await response.text();
+      let errorMessage;
+      try {
+        // Try to parse as JSON to get a better error message
+        const parsedError = JSON.parse(errorData);
+        errorMessage = parsedError.message || errorData;
+      } catch {
+        errorMessage = errorData;
+      }
+      console.error("Symbl token error:", errorMessage);
+      throw new Error(`Failed to get Symbl token: ${errorMessage}`);
+    }
+
+    const data = await response.json();
+    SYMBL_TOKEN = data.accessToken;
+    
+    // Set expiration to 14 minutes from now (tokens are valid for 15 minutes)
+    tokenExpiration = now + 14 * 60 * 1000;
+    
+    return SYMBL_TOKEN;
+  } catch (error) {
+    console.error("Error getting Symbl token:", error);
+    throw error;
   }
-
-  const data = await response.json();
-  SYMBL_TOKEN = data.accessToken;
-  
-  // Set expiration to 14 minutes from now (tokens are valid for 15 minutes)
-  tokenExpiration = now + 14 * 60 * 1000;
-  
-  return SYMBL_TOKEN;
 }

@@ -1,12 +1,13 @@
 
 import React, { useState, useRef } from 'react';
-import { Upload, RefreshCcw, Link, FileAudio } from 'lucide-react';
+import { Upload, RefreshCcw, Link, FileAudio, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { uploadMeetingAudio } from "@/utils/symblClient";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import UploadErrorHandler from './UploadErrorHandler';
 
 interface AudioUploaderProps {
   credentialsSet: boolean | null;
@@ -16,6 +17,7 @@ interface AudioUploaderProps {
 const AudioUploader = ({ credentialsSet, onUploadSuccess }: AudioUploaderProps) => {
   const [audioUrl, setAudioUrl] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -39,7 +41,10 @@ const AudioUploader = ({ credentialsSet, onUploadSuccess }: AudioUploaderProps) 
       return;
     }
 
+    // Clear previous errors
+    setUploadError(null);
     setIsUploading(true);
+    
     try {
       await uploadMeetingAudio({ url: audioUrl });
       toast({
@@ -50,9 +55,10 @@ const AudioUploader = ({ credentialsSet, onUploadSuccess }: AudioUploaderProps) 
       onUploadSuccess();
     } catch (error) {
       console.error("Upload error:", error);
+      setUploadError(error instanceof Error ? error.message : "Unknown error occurred");
       toast({
         title: "Upload Failed",
-        description: error instanceof Error ? error.message : "Unknown error occurred",
+        description: "Check the error details below for more information",
         variant: "destructive",
       });
     } finally {
@@ -85,7 +91,10 @@ const AudioUploader = ({ credentialsSet, onUploadSuccess }: AudioUploaderProps) 
       return;
     }
 
+    // Clear previous errors
+    setUploadError(null);
     setIsUploading(true);
+    
     try {
       // Read file as base64
       const reader = new FileReader();
@@ -110,9 +119,10 @@ const AudioUploader = ({ credentialsSet, onUploadSuccess }: AudioUploaderProps) 
           onUploadSuccess();
         } catch (error) {
           console.error("File processing error:", error);
+          setUploadError(error instanceof Error ? error.message : "Unknown error occurred");
           toast({
             title: "Upload Failed",
-            description: error instanceof Error ? error.message : "Unknown error occurred",
+            description: "Check the error details below for more information",
             variant: "destructive",
           });
         } finally {
@@ -122,6 +132,7 @@ const AudioUploader = ({ credentialsSet, onUploadSuccess }: AudioUploaderProps) 
       
       reader.onerror = () => {
         setIsUploading(false);
+        setUploadError("Failed to read the selected file");
         toast({
           title: "Error",
           description: "Failed to read the selected file",
@@ -130,10 +141,11 @@ const AudioUploader = ({ credentialsSet, onUploadSuccess }: AudioUploaderProps) 
       };
     } catch (error) {
       console.error("Upload error:", error);
+      setUploadError(error instanceof Error ? error.message : "Unknown error occurred");
       setIsUploading(false);
       toast({
         title: "Upload Failed",
-        description: error instanceof Error ? error.message : "Unknown error occurred",
+        description: "Check the error details below for more information",
         variant: "destructive",
       });
     }
@@ -145,6 +157,8 @@ const AudioUploader = ({ credentialsSet, onUploadSuccess }: AudioUploaderProps) 
         <CardTitle>Upload Meeting Recording</CardTitle>
       </CardHeader>
       <CardContent>
+        <UploadErrorHandler error={uploadError} onDismiss={() => setUploadError(null)} />
+        
         <Tabs defaultValue="file" className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-4">
             <TabsTrigger value="file" className="flex items-center gap-2">
@@ -215,8 +229,11 @@ const AudioUploader = ({ credentialsSet, onUploadSuccess }: AudioUploaderProps) 
           </TabsContent>
         </Tabs>
       </CardContent>
-      <CardFooter className="text-xs text-gray-400">
-        Supported formats: MP4, MP3, WAV, and most audio/video formats
+      <CardFooter className="flex flex-col items-start text-xs text-gray-400">
+        <span>Supported formats: MP4, MP3, WAV, and most audio/video formats</span>
+        <span className="mt-1 text-amber-400/70 flex items-center gap-1">
+          <AlertCircle className="h-3 w-3" /> For web services like YouTube, download the file first
+        </span>
       </CardFooter>
     </Card>
   );
