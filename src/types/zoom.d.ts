@@ -40,6 +40,10 @@ interface ZoomMtg {
     browser: boolean;
     webRTC: boolean;
   };
+  getUserInfo: (params: { success: (info: any) => void; }) => void;
+  getRecordingStatus: (params: { success: (status: any) => void; }) => void;
+  startRecording: (params: { success?: () => void; }) => void;
+  stopRecording: (params: { success?: () => void; }) => void;
 }
 
 declare global {

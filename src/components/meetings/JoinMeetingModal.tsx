@@ -42,7 +42,7 @@ const JoinMeetingModal: React.FC<JoinMeetingModalProps> = ({ isOpen, onClose, on
     setIsLoading(true);
 
     try {
-      // Get Symbl token before joining the meeting
+      // Get Symbl token - uses the actual Symbl.ai API now
       const { token } = await initSymblRealtime();
       
       if (!token) {

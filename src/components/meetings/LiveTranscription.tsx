@@ -1,14 +1,82 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Loader2, WifiOff } from 'lucide-react';
 
 interface LiveTranscriptionProps {
   isConnected: boolean;
   transcription: string;
   isLoading?: boolean;
+  symblToken?: string;
+  conversationId?: string;
 }
 
-const LiveTranscription = ({ isConnected, transcription, isLoading }: LiveTranscriptionProps) => {
+const LiveTranscription = ({ 
+  isConnected, 
+  transcription, 
+  isLoading, 
+  symblToken,
+  conversationId
+}: LiveTranscriptionProps) => {
+  const [liveTranscript, setLiveTranscript] = useState(transcription || '');
+  const [wsConnection, setWsConnection] = useState<WebSocket | null>(null);
+
+  // Connect to real-time WebSocket if we have a token and conversation ID
+  useEffect(() => {
+    if (isConnected && symblToken && conversationId) {
+      try {
+        // Connect to the real Symbl.ai WebSocket API
+        const ws = new WebSocket(`wss://api.symbl.ai/v1/realtime/insights/${conversationId}?access_token=${symblToken}`);
+        
+        ws.onopen = () => {
+          console.log('WebSocket connection established');
+        };
+        
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            
+            // Handle different message types from Symbl.ai
+            if (data.type === 'transcript_response') {
+              if (data.payload?.content) {
+                setLiveTranscript(prev => `${prev}\n${data.payload.content}`);
+              }
+            } else if (data.type === 'message_response') {
+              if (data.messages?.length > 0) {
+                const newMessages = data.messages.map((msg: any) => msg.payload.content).join('\n');
+                setLiveTranscript(prev => `${prev}\n${newMessages}`);
+              }
+            }
+          } catch (error) {
+            console.error('Error parsing WebSocket message:', error);
+          }
+        };
+        
+        ws.onerror = (error) => {
+          console.error('WebSocket error:', error);
+        };
+        
+        ws.onclose = () => {
+          console.log('WebSocket connection closed');
+        };
+        
+        setWsConnection(ws);
+        
+        return () => {
+          ws.close();
+        };
+      } catch (error) {
+        console.error('Error setting up WebSocket:', error);
+      }
+    }
+  }, [isConnected, symblToken, conversationId]);
+
+  // Update transcription when prop changes
+  useEffect(() => {
+    if (transcription && transcription !== liveTranscript) {
+      setLiveTranscript(transcription);
+    }
+  }, [transcription]);
+
   if (!isConnected) {
     return (
       <div className="p-4 text-center">
@@ -28,7 +96,7 @@ const LiveTranscription = ({ isConnected, transcription, isLoading }: LiveTransc
         </div>
       ) : (
         <p className="text-gray-300 text-sm whitespace-pre-line">
-          {transcription || "Live transcription will appear here..."}
+          {liveTranscript || "Live transcription will appear here..."}
         </p>
       )}
     </div>
