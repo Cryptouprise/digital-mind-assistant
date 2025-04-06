@@ -3,10 +3,15 @@ import React, { useState, useEffect } from "react";
 import Navigation from "@/components/Navigation";
 import ChatBot from "@/components/ChatBot";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
+import { Calendar, Mic, Video } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
 const Chat = () => {
-  // Add hint message that disappears after a delay
   const [showHint, setShowHint] = useState(true);
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -15,6 +20,14 @@ const Chat = () => {
     
     return () => clearTimeout(timer);
   }, []);
+  
+  const handleStartMeeting = () => {
+    toast({
+      title: "Navigating to Meetings",
+      description: "Opening the meetings dashboard for you"
+    });
+    navigate("/meetings");
+  };
   
   return (
     <div className="min-h-screen bg-slate-900 text-white">
@@ -36,6 +49,40 @@ const Chat = () => {
                 Click the microphone icon to start voice conversation
               </div>
             )}
+          </div>
+          
+          {/* Meeting Quick Access Panel */}
+          <div className="mb-6 bg-slate-800/60 rounded-lg p-4 border border-slate-700">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-medium flex items-center">
+                  <Calendar className="mr-2 h-5 w-5 text-blue-400" />
+                  Meeting Intelligence
+                </h2>
+                <p className="text-sm text-slate-400 mt-1">
+                  Record and analyze meetings for real-time insights and transcriptions
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="bg-slate-700 border-slate-600 hover:bg-slate-600"
+                  onClick={handleStartMeeting}
+                >
+                  <Video className="mr-2 h-4 w-4" />
+                  View Meetings
+                </Button>
+                <Button 
+                  variant="default" 
+                  size="sm"
+                  onClick={handleStartMeeting}
+                >
+                  <Mic className="mr-2 h-4 w-4" />
+                  Start Meeting
+                </Button>
+              </div>
+            </div>
           </div>
           
           <ChatBot />
