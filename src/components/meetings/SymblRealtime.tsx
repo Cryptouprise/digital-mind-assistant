@@ -7,6 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import LiveTranscription from './LiveTranscription';
 import InsightsList from './InsightsList';
 import MeetingControls from './MeetingControls';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Mic, MessageSquare, Lightbulb, Volume2 } from 'lucide-react';
 
 // Simulated insights for development/demo purposes
 const mockInsights = [
@@ -27,6 +29,7 @@ export const SymblRealtime: React.FC<SymblRealtimeProps> = ({ meetingId }) => {
   const [insights, setInsights] = useState<string[]>([]);
   const [transcription, setTranscription] = useState<string>("");
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>("transcription");
   const { toast } = useToast();
   const symblTokenRef = useRef<string | null>(null);
 
@@ -200,13 +203,13 @@ export const SymblRealtime: React.FC<SymblRealtimeProps> = ({ meetingId }) => {
   };
   
   return (
-    <Card className="bg-slate-800 border-slate-700 text-white mb-6">
-      <CardHeader className="pb-2">
+    <Card className="bg-slate-800 border-slate-700 text-white mb-6 overflow-hidden">
+      <CardHeader className="pb-2 bg-gradient-to-r from-blue-900 to-slate-800 border-b border-slate-700">
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span>Live Meeting Intelligence</span>
             {isConnected ? (
-              <Badge variant="outline" className="bg-green-900 text-green-100 border-green-500">
+              <Badge variant="outline" className="bg-green-900 text-green-100 border-green-500 animate-pulse">
                 Connected
               </Badge>
             ) : (
@@ -227,21 +230,71 @@ export const SymblRealtime: React.FC<SymblRealtimeProps> = ({ meetingId }) => {
         </CardTitle>
       </CardHeader>
       
-      <CardContent>
-        <LiveTranscription 
-          isConnected={isConnected}
-          transcription={transcription}
-          isLoading={isLoading && isConnected}
-        />
-        
-        {isConnected && (
-          <div className="mt-4">
-            <InsightsList insights={insights} />
+      <CardContent className="p-0">
+        {isConnected ? (
+          <Tabs defaultValue="transcription" value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid grid-cols-3 bg-slate-900 p-0 rounded-none">
+              <TabsTrigger value="transcription" className="data-[state=active]:bg-slate-800 py-3">
+                <Mic className="h-4 w-4 mr-2" />
+                Transcription
+              </TabsTrigger>
+              <TabsTrigger value="insights" className="data-[state=active]:bg-slate-800 py-3">
+                <Lightbulb className="h-4 w-4 mr-2" />
+                Insights
+              </TabsTrigger>
+              <TabsTrigger value="speakers" className="data-[state=active]:bg-slate-800 py-3">
+                <Volume2 className="h-4 w-4 mr-2" />
+                Speakers
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="transcription" className="p-4">
+              <LiveTranscription 
+                isConnected={isConnected}
+                transcription={transcription}
+                isLoading={isLoading && isConnected}
+              />
+            </TabsContent>
+            
+            <TabsContent value="insights" className="p-4">
+              <InsightsList insights={insights} />
+            </TabsContent>
+            
+            <TabsContent value="speakers" className="p-4">
+              <div className="bg-slate-900 rounded-md p-4">
+                <h3 className="text-sm font-medium mb-2">Speaker Identification</h3>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                    <span className="text-sm text-white">John Doe</span>
+                    <span className="text-xs text-slate-400 ml-auto">5 min 23s</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                    <span className="text-sm text-white">Jane Smith</span>
+                    <span className="text-xs text-slate-400 ml-auto">3 min 10s</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-purple-500"></div>
+                    <span className="text-sm text-white">Unknown Speaker</span>
+                    <span className="text-xs text-slate-400 ml-auto">1 min 45s</span>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+        ) : (
+          <div className="p-6">
+            <LiveTranscription 
+              isConnected={isConnected}
+              transcription={transcription}
+              isLoading={isLoading}
+            />
           </div>
         )}
         
         {conversationId && (
-          <div className="mt-2 pt-2 border-t border-slate-700">
+          <div className="px-4 py-2 bg-slate-900 text-center border-t border-slate-700">
             <p className="text-xs text-gray-500">Conversation ID: {conversationId}</p>
           </div>
         )}

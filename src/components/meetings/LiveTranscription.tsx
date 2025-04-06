@@ -79,25 +79,41 @@ const LiveTranscription = ({
 
   if (!isConnected) {
     return (
-      <div className="p-4 text-center">
-        <WifiOff className="h-8 w-8 mx-auto mb-2 text-gray-500" />
-        <p className="text-gray-400">Start a meeting to begin capturing real-time insights.</p>
-        <p className="text-gray-500 text-sm mt-1">Click the "Start Meeting" button to begin.</p>
+      <div className="p-8 text-center bg-slate-900/60 rounded-md border border-dashed border-slate-700">
+        <WifiOff className="h-10 w-10 mx-auto mb-3 text-slate-500" />
+        <h3 className="text-lg font-medium text-slate-300 mb-2">No Active Meeting</h3>
+        <p className="text-slate-400 mb-3 max-w-md mx-auto">Start a meeting to begin capturing real-time transcription, insights, and analytics powered by Symbl.ai</p>
+        <div className="text-xs text-slate-500">Click the "Start Meeting" button above to begin</div>
       </div>
     );
   }
 
   return (
-    <div className="p-3 bg-slate-900 rounded-md max-h-40 overflow-y-auto">
+    <div className="p-3 bg-slate-900 rounded-md max-h-[300px] overflow-y-auto">
       {isLoading ? (
-        <div className="flex items-center justify-center py-4">
-          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-          <span className="text-gray-400">Capturing audio...</span>
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="h-5 w-5 animate-spin mr-3" />
+          <span className="text-slate-300 font-medium">Capturing audio...</span>
         </div>
       ) : (
-        <p className="text-gray-300 text-sm whitespace-pre-line">
-          {liveTranscript || "Live transcription will appear here..."}
-        </p>
+        <div className="space-y-4">
+          {liveTranscript.split("\n\n").map((paragraph, idx) => (
+            <div key={idx} className="rounded-md bg-slate-800/60 p-3 border-l-2 border-blue-600">
+              <p className="text-slate-300 text-sm whitespace-pre-line">
+                {paragraph || "Waiting for speech..."}
+              </p>
+              <div className="text-right mt-1">
+                <span className="text-xs text-slate-500">Just now</span>
+              </div>
+            </div>
+          ))}
+          
+          {!liveTranscript && (
+            <div className="text-center py-4 text-slate-500">
+              Waiting for speech to transcribe...
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

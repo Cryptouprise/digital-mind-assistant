@@ -1,6 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { Lightbulb, AlertCircle, HelpCircle, CalendarPlus } from 'lucide-react';
 
 interface Insight {
   id: string;
@@ -83,22 +84,57 @@ const InsightsList = ({ insights: initialInsights, symblToken, conversationId }:
         return 'outline';
     }
   };
+  
+  // Helper to get icon based on insight type
+  const getInsightIcon = (type: string) => {
+    switch (type.toLowerCase()) {
+      case 'action item':
+        return <CalendarPlus className="h-3 w-3" />;
+      case 'question':
+        return <HelpCircle className="h-3 w-3" />;
+      case 'follow-up':
+        return <AlertCircle className="h-3 w-3" />;
+      default:
+        return <Lightbulb className="h-3 w-3" />;
+    }
+  };
 
   return (
-    <div>
-      <h3 className="text-sm font-medium mb-2">Real-Time Insights</h3>
+    <div className="bg-slate-900/60 rounded-md p-4 border border-slate-800">
+      <h3 className="text-sm font-medium mb-3 flex items-center">
+        <Lightbulb className="h-4 w-4 mr-2 text-yellow-500" />
+        Real-Time Insights
+      </h3>
+      
       {insights.length === 0 ? (
-        <p className="text-gray-500 text-sm">No insights detected yet...</p>
+        <div className="text-center py-8 bg-slate-800/50 rounded-md border border-dashed border-slate-700">
+          <Lightbulb className="h-8 w-8 mx-auto mb-2 text-slate-600" />
+          <p className="text-slate-400 text-sm mb-1">No insights detected yet</p>
+          <p className="text-xs text-slate-500">Insights will appear here as they're detected</p>
+        </div>
       ) : (
-        <ul className="space-y-2 max-h-40 overflow-y-auto">
+        <ul className="space-y-3 max-h-[250px] overflow-y-auto pr-1">
           {insights.map((insight) => (
-            <li key={insight.id} className="text-sm bg-slate-700 p-2 rounded flex flex-col">
-              {insight.type && (
-                <Badge variant={getBadgeVariant(insight.type)} className="self-start mb-1">
-                  {insight.type}
-                </Badge>
+            <li key={insight.id} className="text-sm bg-slate-800 p-3 rounded-md border-l-2 border-yellow-500 hover:bg-slate-800/80 transition-colors">
+              <div className="flex justify-between items-start mb-2">
+                {insight.type && (
+                  <Badge variant={getBadgeVariant(insight.type)} className="flex items-center gap-1">
+                    {getInsightIcon(insight.type)}
+                    {insight.type}
+                  </Badge>
+                )}
+                {insight.confidence && (
+                  <span className="text-xs text-slate-500">
+                    {Math.round(insight.confidence * 100)}% confidence
+                  </span>
+                )}
+              </div>
+              <p className="text-slate-300">{insight.text}</p>
+              {insight.assignee && (
+                <div className="mt-2 text-xs text-slate-400">
+                  Assigned to: {insight.assignee}
+                </div>
               )}
-              <span>{insight.text}</span>
             </li>
           ))}
         </ul>

@@ -153,23 +153,31 @@ const Meetings = () => {
             </ErrorBoundary>
           ) : (
             <>
-              <ErrorBoundary>
-                <SymblCredentialsManager 
-                  credentialsSet={credentialsSet}
-                  onCredentialsUpdate={handleCredentialsUpdate}
-                />
-              </ErrorBoundary>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+                <div className="lg:col-span-2">
+                  <ErrorBoundary>
+                    <SymblRealtime />
+                  </ErrorBoundary>
+                </div>
+                
+                <div className="lg:col-span-1">
+                  <ErrorBoundary>
+                    <SymblCredentialsManager 
+                      credentialsSet={credentialsSet}
+                      onCredentialsUpdate={handleCredentialsUpdate}
+                    />
+                  </ErrorBoundary>
 
-              <ErrorBoundary>
-                <AudioUploader 
-                  credentialsSet={credentialsSet}
-                  onUploadSuccess={handleRefresh}
-                />
-              </ErrorBoundary>
-              
-              <ErrorBoundary>
-                <SymblRealtime />
-              </ErrorBoundary>
+                  <div className="mt-4">
+                    <ErrorBoundary>
+                      <AudioUploader 
+                        credentialsSet={credentialsSet}
+                        onUploadSuccess={handleRefresh}
+                      />
+                    </ErrorBoundary>
+                  </div>
+                </div>
+              </div>
 
               <ErrorBoundary>
                 <MeetingsList 
