@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Volume2, VolumeX, Mic, MicOff } from "lucide-react";
+import { Volume2, VolumeX, Mic, MicOff, Activity } from "lucide-react";
 import { useBreakpoint } from "@/hooks/use-mobile";
 
 const ChatBot = () => {
@@ -15,6 +15,8 @@ const ChatBot = () => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [interimTranscript, setInterimTranscript] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isMobile = useBreakpoint(768);
@@ -22,6 +24,9 @@ const ChatBot = () => {
   // Media recorder for voice input
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
   const audioChunks = useRef<Blob[]>([]);
+  const recordingInterval = useRef<number | null>(null);
+  const interimChunks = useRef<Blob[]>([]);
+  const interimTimer = useRef<number | null>(null);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -42,8 +47,42 @@ const ChatBot = () => {
         audioRef.current.pause();
         audioRef.current = null;
       }
+      
+      // Clean up intervals on unmount
+      if (recordingInterval.current) {
+        window.clearInterval(recordingInterval.current);
+      }
+      if (interimTimer.current) {
+        window.clearInterval(interimTimer.current);
+      }
     };
   }, []);
+
+  // Reset recording time when listening state changes
+  useEffect(() => {
+    if (isListening) {
+      setRecordingTime(0);
+      recordingInterval.current = window.setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+    } else {
+      if (recordingInterval.current) {
+        window.clearInterval(recordingInterval.current);
+        recordingInterval.current = null;
+      }
+      if (interimTimer.current) {
+        window.clearInterval(interimTimer.current);
+        interimTimer.current = null;
+      }
+      setInterimTranscript("");
+    }
+  }, [isListening]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const secs = (seconds % 60).toString().padStart(2, '0');
+    return `${mins}:${secs}`;
+  };
 
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -154,14 +193,16 @@ const ChatBot = () => {
       toast.success("Microphone access granted");
 
       // Create a new MediaRecorder instance
-      const recorder = new MediaRecorder(stream);
+      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
       setMediaRecorder(recorder);
       audioChunks.current = [];
+      interimChunks.current = [];
 
       // Event handlers for the recorder
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
           audioChunks.current.push(e.data);
+          interimChunks.current.push(e.data);
         }
       };
 
@@ -169,12 +210,23 @@ const ChatBot = () => {
         const audioBlob = new Blob(audioChunks.current, { type: 'audio/webm' });
         await processAudioInput(audioBlob);
         audioChunks.current = [];
+        interimChunks.current = [];
       };
 
       // Start recording
-      recorder.start();
+      recorder.start(1000); // Collect data every second for interim results
       setIsListening(true);
       toast.info("Listening... Speak now");
+      
+      // Setup interim transcript processing
+      interimTimer.current = window.setInterval(async () => {
+        if (interimChunks.current.length > 0) {
+          const interimBlob = new Blob(interimChunks.current, { type: 'audio/webm' });
+          await processInterimAudio(interimBlob);
+          interimChunks.current = []; // Clear interim chunks after processing
+        }
+      }, 3000); // Process interim results every 3 seconds
+      
     } catch (error) {
       console.error('Error accessing microphone:', error);
       toast.error("Failed to access microphone. Please check your permissions.");
@@ -189,6 +241,49 @@ const ChatBot = () => {
 
       // Stop all tracks to release microphone
       mediaRecorder.stream.getTracks().forEach(track => track.stop());
+      
+      // Clear intervals
+      if (interimTimer.current) {
+        window.clearInterval(interimTimer.current);
+        interimTimer.current = null;
+      }
+    }
+  };
+
+  const processInterimAudio = async (audioBlob: Blob) => {
+    try {
+      // Convert blob to base64
+      const reader = new FileReader();
+      
+      reader.onloadend = async () => {
+        const base64Audio = reader.result as string;
+        const base64Data = base64Audio.split(',')[1]; // Remove the data URL prefix
+        
+        // Only send interim audio if we're still listening
+        if (!isListening) return;
+
+        // Send to Supabase edge function for speech-to-text
+        const { data, error } = await supabase.functions.invoke('voice-to-text', {
+          body: { 
+            audio: base64Data,
+            isInterim: true
+          }
+        });
+
+        if (error || !data?.text) {
+          console.log('Interim transcription failed:', error);
+          return;
+        }
+
+        const transcribedText = data.text.trim();
+        if (transcribedText) {
+          setInterimTranscript(prev => prev ? `${prev} ${transcribedText}` : transcribedText);
+        }
+      };
+      
+      reader.readAsDataURL(audioBlob);
+    } catch (error) {
+      console.log('Error processing interim audio:', error);
     }
   };
 
@@ -265,6 +360,7 @@ const ChatBot = () => {
         
         setIsLoading(false);
         setInput("");
+        setInterimTranscript("");
       };
       
       reader.readAsDataURL(audioBlob);
@@ -272,6 +368,7 @@ const ChatBot = () => {
       console.error('Error processing audio input:', error);
       toast.error("Failed to process audio. Please try again.");
       setIsLoading(false);
+      setInterimTranscript("");
     }
   };
 
@@ -283,9 +380,9 @@ const ChatBot = () => {
   };
 
   return (
-    <div className="p-4 border rounded-lg shadow-sm max-w-lg mx-auto bg-card">
+    <div className="p-4 border rounded-lg shadow-sm max-w-2xl mx-auto bg-slate-800">
       <div className="flex items-center justify-between mb-2">
-        <h2 className="text-xl font-bold flex items-center">
+        <h2 className="text-xl font-bold flex items-center text-white">
           <span className="mr-2">Jarvis Assistant</span>
           {isLoading && (
             <span className="inline-block w-4 h-4 border-2 border-t-transparent border-blue-600 rounded-full animate-spin"></span>
@@ -307,16 +404,38 @@ const ChatBot = () => {
             onClick={isListening ? stopListening : startListening}
             disabled={isLoading}
             title={isListening ? "Stop listening" : "Start voice input"}
+            className={isListening ? "animate-pulse" : ""}
           >
             {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
           </Button>
         </div>
       </div>
       
-      <ScrollArea className="h-80 mb-4 p-2 rounded-md border">
-        <div className="space-y-2">
+      {/* Voice recording indicator */}
+      {isListening && (
+        <div className="mb-3 p-3 bg-red-900/20 border border-red-500/30 rounded-md flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Activity className="h-4 w-4 text-red-400 animate-pulse" />
+            <span className="text-sm font-medium text-white">Recording voice...</span>
+          </div>
+          <span className="text-sm font-mono text-red-300">{formatTime(recordingTime)}</span>
+        </div>
+      )}
+      
+      {/* Interim transcript area */}
+      {isListening && interimTranscript && (
+        <div className="mb-3 p-3 bg-blue-900/20 border border-blue-500/30 rounded-md">
+          <p className="text-sm text-blue-100 leading-relaxed font-medium">
+            <span className="text-blue-300 text-xs mr-2">Hearing:</span>
+            "{interimTranscript}"
+          </p>
+        </div>
+      )}
+      
+      <ScrollArea className="h-80 mb-4 p-2 rounded-md border bg-slate-900">
+        <div className="space-y-3">
           {messages.length === 0 ? (
-            <p className="text-center text-muted-foreground p-4">
+            <p className="text-center text-slate-400 p-4">
               Send a message to start a conversation with Jarvis.
             </p>
           ) : (
@@ -326,13 +445,13 @@ const ChatBot = () => {
                 className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
               >
                 <div
-                  className={`px-3 py-2 rounded-lg max-w-[80%] ${
+                  className={`px-4 py-3 rounded-lg max-w-[80%] shadow-md ${
                     msg.sender === "user" 
-                      ? "bg-primary text-primary-foreground" 
-                      : "bg-muted"
+                      ? "bg-blue-600 text-white" 
+                      : "bg-slate-700 text-slate-100"
                   }`}
                 >
-                  <p>{msg.text}</p>
+                  <p className="text-base leading-relaxed font-medium">{msg.text}</p>
                   {isSpeaking && msg === messages[messages.length - 1] && msg.sender === "jarvis" && (
                     <div className="mt-1 text-xs opacity-70 flex items-center">
                       <Volume2 className="h-3 w-3 mr-1 animate-pulse" /> Speaking...
@@ -353,15 +472,15 @@ const ChatBot = () => {
           onKeyDown={handleKeyDown}
           placeholder="Ask Jarvis..."
           disabled={isLoading || isListening}
-          className="flex-1"
+          className="flex-1 bg-slate-700 text-white border-slate-600 placeholder:text-slate-400"
         />
         <div className="flex gap-2">
           {!isMobile && (
             <Button
-              variant="outline"
+              variant={isListening ? "destructive" : "outline"}
               onClick={isListening ? stopListening : startListening}
               disabled={isLoading}
-              className="hidden sm:flex items-center gap-1"
+              className={`hidden sm:flex items-center gap-1 ${isListening ? "animate-pulse" : ""}`}
             >
               {isListening ? "Stop" : "Voice Input"}
               {isListening ? <MicOff className="h-4 w-4 ml-1" /> : <Mic className="h-4 w-4 ml-1" />}
@@ -370,7 +489,7 @@ const ChatBot = () => {
           <Button 
             onClick={sendMessage} 
             disabled={isLoading || isListening || !input.trim()}
-            className="w-full sm:w-auto"
+            className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
           >
             Send
           </Button>

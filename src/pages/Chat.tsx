@@ -8,7 +8,7 @@ const Chat = () => {
   return (
     <div className="min-h-screen bg-slate-900 text-white">
       <Navigation />
-      <ScrollArea className="h-screen w-full">
+      <ScrollArea className="h-screen w-full touch-scroll">
         <div className="container py-4 md:py-8 max-w-5xl mx-auto px-4 md:px-6">
           <ChatBot />
         </div>

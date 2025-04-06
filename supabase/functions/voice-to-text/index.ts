@@ -44,13 +44,13 @@ serve(async (req) => {
   }
 
   try {
-    const { audio } = await req.json();
+    const { audio, isInterim } = await req.json();
     
     if (!audio) {
       throw new Error('No audio data provided');
     }
 
-    console.log("Received audio data for processing");
+    console.log(`Received audio data for processing${isInterim ? ' (interim)' : ''}`);
     
     // Process audio in chunks
     const binaryAudio = processBase64Chunks(audio);
@@ -60,6 +60,11 @@ serve(async (req) => {
     const blob = new Blob([binaryAudio], { type: 'audio/webm' });
     formData.append('file', blob, 'audio.webm');
     formData.append('model', 'whisper-1');
+    
+    // Set language to English for better recognition during interim results
+    if (isInterim) {
+      formData.append('language', 'en');
+    }
 
     console.log("Sending audio to OpenAI for transcription");
 
