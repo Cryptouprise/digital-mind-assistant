@@ -8,6 +8,7 @@ import { fetchMeetings } from "@/utils/symblClient";
 import { checkSymblCredentials } from "@/utils/checkSymblCredentials";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 // Import our components
 import SymblCredentialsManager from "@/components/meetings/SymblCredentialsManager";
@@ -94,26 +95,38 @@ const Meetings = () => {
         </div>
 
         <div className="space-y-4 md:space-y-6">
-          <SymblCredentialsManager 
-            credentialsSet={credentialsSet}
-            onCredentialsUpdate={handleCredentialsUpdate}
-          />
+          <ErrorBoundary>
+            <SymblCredentialsManager 
+              credentialsSet={credentialsSet}
+              onCredentialsUpdate={handleCredentialsUpdate}
+            />
+          </ErrorBoundary>
 
-          <AudioUploader 
-            credentialsSet={credentialsSet}
-            onUploadSuccess={handleRefresh}
-          />
+          <ErrorBoundary>
+            <AudioUploader 
+              credentialsSet={credentialsSet}
+              onUploadSuccess={handleRefresh}
+            />
+          </ErrorBoundary>
           
-          <SymblRealtime />
+          <ErrorBoundary>
+            <SymblRealtime />
+          </ErrorBoundary>
 
-          <MeetingsList 
-            meetings={meetings}
-            isLoading={isLoading}
-            error={error instanceof Error ? error : null}
-            onRefresh={handleRefresh}
-          />
+          <ErrorBoundary>
+            <MeetingsList 
+              meetings={meetings}
+              isLoading={isLoading}
+              error={error instanceof Error ? error : null}
+              onRefresh={handleRefresh}
+            />
+          </ErrorBoundary>
 
-          {meetings.length > 0 && <MeetingSummaries meetings={meetings} />}
+          {meetings.length > 0 && (
+            <ErrorBoundary>
+              <MeetingSummaries meetings={meetings} />
+            </ErrorBoundary>
+          )}
         </div>
       </main>
     </div>

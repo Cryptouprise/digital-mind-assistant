@@ -2,12 +2,13 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Mic, MicOff, WifiOff, Save } from 'lucide-react';
-import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import LiveTranscription from './LiveTranscription';
+import InsightsList from './InsightsList';
+import MeetingControls from './MeetingControls';
 
-// This will be replaced with actual integration once the Symbl SDK is loaded
+// Simulated insights for development/demo purposes
 const mockInsights = [
   "Consider increasing pricing by 10% to align with market value",
   "Customer showed interest in the premium tier features",
@@ -215,69 +216,27 @@ export const SymblRealtime: React.FC<SymblRealtimeProps> = ({ meetingId }) => {
             )}
           </div>
           
-          {isConnected ? (
-            <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                disabled={isSaving}
-                onClick={handleSaveSession}
-                className="flex items-center gap-1"
-              >
-                {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                <span>Save Session</span>
-              </Button>
-              <Button 
-                variant="destructive" 
-                size="sm" 
-                disabled={isLoading}
-                onClick={handleStopMeeting}
-                className="flex items-center gap-1"
-              >
-                {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <MicOff className="h-3 w-3" />}
-                <span>End Meeting</span>
-              </Button>
-            </div>
-          ) : (
-            <Button 
-              variant="secondary" 
-              size="sm" 
-              disabled={isLoading}
-              onClick={handleStartMeeting}
-              className="flex items-center gap-1"
-            >
-              {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mic className="h-3 w-3" />}
-              <span>Start Meeting</span>
-            </Button>
-          )}
+          <MeetingControls 
+            isConnected={isConnected}
+            isLoading={isLoading}
+            isSaving={isSaving}
+            onStartMeeting={handleStartMeeting}
+            onStopMeeting={handleStopMeeting}
+            onSaveSession={handleSaveSession}
+          />
         </CardTitle>
       </CardHeader>
       
       <CardContent>
-        {isConnected ? (
-          <div className="space-y-4">
-            <div className="p-3 bg-slate-900 rounded-md max-h-40 overflow-y-auto">
-              <p className="text-gray-300 text-sm whitespace-pre-line">{transcription || "Live transcription will appear here..."}</p>
-            </div>
-            
-            <div>
-              <h3 className="text-sm font-medium mb-2">Real-Time Insights</h3>
-              {insights.length === 0 ? (
-                <p className="text-gray-500 text-sm">No insights detected yet...</p>
-              ) : (
-                <ul className="space-y-1 max-h-40 overflow-y-auto">
-                  {insights.map((insight, i) => (
-                    <li key={i} className="text-sm bg-slate-700 p-2 rounded">{insight}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="p-4 text-center">
-            <WifiOff className="h-8 w-8 mx-auto mb-2 text-gray-500" />
-            <p className="text-gray-400">Start a meeting to begin capturing real-time insights.</p>
-            <p className="text-gray-500 text-sm mt-1">Click the "Start Meeting" button to begin.</p>
+        <LiveTranscription 
+          isConnected={isConnected}
+          transcription={transcription}
+          isLoading={isLoading && isConnected}
+        />
+        
+        {isConnected && (
+          <div className="mt-4">
+            <InsightsList insights={insights} />
           </div>
         )}
         

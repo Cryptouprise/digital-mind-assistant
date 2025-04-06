@@ -3,6 +3,7 @@ import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle2, Circle, Zap } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
 
 type RoadmapItem = {
   title: string;
@@ -48,6 +49,23 @@ export function Roadmap() {
     .slice(0, 3)
     .map(item => item.title);
 
+  const renderPhaseItems = (items: RoadmapItem[]) => (
+    <ul className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+      {items.map((item, index) => (
+        <li key={index} className="flex items-center space-x-2">
+          {item.completed ? (
+            <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0" />
+          ) : (
+            <Circle className="h-5 w-5 text-gray-500 flex-shrink-0" />
+          )}
+          <span className={`${item.completed ? "text-green-400" : "text-gray-400"} line-clamp-1`}>
+            {item.title}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+
   return (
     <Card className="bg-slate-800 border-slate-700 text-white">
       <CardHeader>
@@ -69,21 +87,10 @@ export function Roadmap() {
               <span className="text-sm text-blue-400">{phase1Progress}%</span>
             </h3>
             <Progress value={phase1Progress} className="h-2 bg-slate-700 mb-2" />
-            <ul className="mt-2 space-y-1 grid grid-cols-1 md:grid-cols-2 gap-x-4">
-              {phase1Items.map((item, index) => (
-                <li key={index} className="flex items-center space-x-2">
-                  {item.completed ? (
-                    <CheckCircle2 className="h-5 w-5 text-green-500" />
-                  ) : (
-                    <Circle className="h-5 w-5 text-gray-500" />
-                  )}
-                  <span className={item.completed ? "text-green-400" : "text-gray-400"}>
-                    {item.title}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            {renderPhaseItems(phase1Items)}
           </div>
+          
+          <Separator className="bg-slate-700" />
           
           <div>
             <h3 className="text-lg font-semibold flex items-center justify-between mb-2">
@@ -91,34 +98,24 @@ export function Roadmap() {
               <span className="text-sm text-blue-400">{phase2Progress}%</span>
             </h3>
             <Progress value={phase2Progress} className="h-2 bg-slate-700 mb-2" />
-            <ul className="mt-2 space-y-1 grid grid-cols-1 md:grid-cols-2 gap-x-4">
-              {phase2Items.map((item, index) => (
-                <li key={index} className="flex items-center space-x-2">
-                  {item.completed ? (
-                    <CheckCircle2 className="h-5 w-5 text-green-500" />
-                  ) : (
-                    <Circle className="h-5 w-5 text-gray-500" />
-                  )}
-                  <span className={item.completed ? "text-green-400" : "text-gray-400"}>
-                    {item.title}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            {renderPhaseItems(phase2Items)}
           </div>
 
           {nextPriorities.length > 0 && (
-            <div className="bg-slate-900 p-4 rounded-lg border border-slate-700">
-              <h3 className="text-lg font-semibold mb-3 flex items-center">
-                <Zap className="h-5 w-5 text-yellow-400 mr-2" />
-                Next Priorities:
-              </h3>
-              <ul className="space-y-2 pl-6 list-disc">
-                {nextPriorities.map((priority, index) => (
-                  <li key={index} className="text-blue-400">{priority}</li>
-                ))}
-              </ul>
-            </div>
+            <>
+              <Separator className="bg-slate-700" />
+              <div className="bg-slate-900 p-4 rounded-lg border border-slate-700">
+                <h3 className="text-lg font-semibold mb-3 flex items-center">
+                  <Zap className="h-5 w-5 text-yellow-400 mr-2" />
+                  Next Priorities:
+                </h3>
+                <ul className="space-y-2 pl-6 list-disc">
+                  {nextPriorities.map((priority, index) => (
+                    <li key={index} className="text-blue-400">{priority}</li>
+                  ))}
+                </ul>
+              </div>
+            </>
           )}
         </div>
       </CardContent>
