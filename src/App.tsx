@@ -16,10 +16,10 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <div className="min-h-screen flex flex-col bg-slate-900">
-        <BrowserRouter>
+      <BrowserRouter>
+        <div className="min-h-screen flex flex-col bg-slate-900 text-white">
           <Navigation />
-          <main className="flex-1 flex flex-col">
+          <main className="flex-1 flex flex-col pt-16">
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/chat" element={<Chat />} />
@@ -29,10 +29,10 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>
-        </BrowserRouter>
+        </div>
         <Toaster />
         <Sonner />
-      </div>
+      </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
 );
