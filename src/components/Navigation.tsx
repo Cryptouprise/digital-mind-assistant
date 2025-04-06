@@ -17,6 +17,9 @@ const Navigation = ({ darkTheme = false }) => {
           <Link to="/" className="text-sm font-medium hover:underline">
             Dashboard
           </Link>
+          <Link to="/meetings" className="text-sm font-medium hover:underline">
+            Meetings
+          </Link>
           <Link to="/chat" className="text-sm font-medium hover:underline">
             Chat
           </Link>
