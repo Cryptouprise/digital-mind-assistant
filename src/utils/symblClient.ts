@@ -135,17 +135,12 @@ export const sendFollowUp = async (meetingId: string, contactId: string | null):
         
       if (fetchError) throw fetchError;
       
-      // Prepare the updated raw_data object with proper type checking
-      let updatedRawData: Record<string, unknown> = {};
-      
-      if (currentMeeting?.raw_data) {
-        if (typeof currentMeeting.raw_data === 'object' && !Array.isArray(currentMeeting.raw_data)) {
-          updatedRawData = { ...currentMeeting.raw_data as Record<string, unknown> };
-        }
-      }
-      
-      // Set follow_up_sent flag
-      updatedRawData.follow_up_sent = true;
+      // Prepare the updated raw_data object
+      const rawData = currentMeeting?.raw_data || {};
+      const updatedRawData = {
+        ...rawData,
+        follow_up_sent: true
+      };
       
       // Update the meeting with the new raw_data
       await supabase
@@ -173,29 +168,31 @@ export const addTag = async (meetingId: string, tag: string): Promise<boolean> =
     if (fetchError) throw fetchError;
     
     // Initialize raw_data object if it doesn't exist or isn't valid
-    let rawData: Record<string, unknown> = {};
-    let currentTags: string[] = [];
+    const currentRawData = meeting?.raw_data || {};
     
-    if (meeting?.raw_data) {
-      if (typeof meeting.raw_data === 'object' && !Array.isArray(meeting.raw_data)) {
-        rawData = meeting.raw_data as Record<string, unknown>;
-        
-        // Extract existing tags if they exist
-        if (rawData.tags && Array.isArray(rawData.tags)) {
-          currentTags = rawData.tags as string[];
-        }
+    // Get current tags or initialize empty array
+    let currentTags: string[] = [];
+    if (typeof currentRawData === 'object' && !Array.isArray(currentRawData)) {
+      const typedRawData = currentRawData as Record<string, unknown>;
+      if (typedRawData.tags && Array.isArray(typedRawData.tags)) {
+        currentTags = typedRawData.tags as string[];
       }
     }
     
+    // Add new tag if it doesn't exist
     if (!currentTags.includes(tag)) {
       const updatedTags = [...currentTags, tag];
       
-      // Update raw_data with new tags
-      rawData.tags = updatedTags;
+      // Create new raw_data object with updated tags
+      const updatedRawData = {
+        ...currentRawData,
+        tags: updatedTags
+      };
       
+      // Update the database
       const { error: updateError } = await supabase
         .from('meetings')
-        .update({ raw_data: rawData })
+        .update({ raw_data: updatedRawData })
         .eq('id', meetingId);
       
       if (updateError) throw updateError;
