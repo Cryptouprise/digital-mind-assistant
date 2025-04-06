@@ -13,6 +13,7 @@ type ApiKeysStatus = {
   elevenlabs: boolean;
   ghl: boolean;
   stripe: boolean;
+  symbl: boolean;
 };
 
 type BrandingSettings = {
@@ -41,6 +42,8 @@ const Settings = () => {
   const [elevenlabsKey, setElevenlabsKey] = useState("");
   const [ghlKey, setGhlKey] = useState("");
   const [stripeKey, setStripeKey] = useState("");
+  const [symblAppId, setSymblAppId] = useState("");
+  const [symblAppSecret, setSymblAppSecret] = useState("");
   
   // Loading states
   const [loadingBrand, setLoadingBrand] = useState(false);
@@ -79,6 +82,27 @@ const Settings = () => {
           setElevenlabsKey(keyStatus.elevenlabs ? "••••••••••••••••••••••" : "");
           setGhlKey(keyStatus.ghl ? "••••••••••••••••••••••" : "");
           setStripeKey(keyStatus.stripe ? "••••••••••••••••••••••" : "");
+        }
+
+        // Load Symbl credentials
+        const { data: symblAppIdData } = await supabase
+          .from('settings' as any)
+          .select('value')
+          .eq('key', 'symbl_app_id')
+          .single();
+          
+        if (symblAppIdData) {
+          setSymblAppId("••••••••••••••••••••••");
+        }
+        
+        const { data: symblAppSecretData } = await supabase
+          .from('settings' as any)
+          .select('value')
+          .eq('key', 'symbl_app_secret')
+          .single();
+          
+        if (symblAppSecretData) {
+          setSymblAppSecret("••••••••••••••••••••••");
         }
       } catch (error) {
         console.error("Error loading settings:", error);
@@ -120,7 +144,9 @@ const Settings = () => {
         openai: openaiKey !== "••••••••••••••••••••••" ? openaiKey : null,
         elevenlabs: elevenlabsKey !== "••••••••••••••••••••••" ? elevenlabsKey : null,
         ghl: ghlKey !== "••••••••••••••••••••••" ? ghlKey : null,
-        stripe: stripeKey !== "••••••••••••••••••••••" ? stripeKey : null
+        stripe: stripeKey !== "••••••••••••••••••••••" ? stripeKey : null,
+        symbl_app_id: symblAppId !== "••••••••••••••••••••••" ? symblAppId : null,
+        symbl_app_secret: symblAppSecret !== "••••••••••••••••••••••" ? symblAppSecret : null
       };
       
       const { error } = await supabase.functions.invoke('update-secret-keys', {
@@ -134,6 +160,8 @@ const Settings = () => {
       if (elevenlabsKey && elevenlabsKey !== "••••••••••••••••••••••") setElevenlabsKey("••••••••••••••••••••••");
       if (ghlKey && ghlKey !== "••••••••••••••••••••••") setGhlKey("••••••••••••••••••••••");
       if (stripeKey && stripeKey !== "••••••••••••••••••••••") setStripeKey("••••••••••••••••••••••");
+      if (symblAppId && symblAppId !== "••••••••••••••••••••••") setSymblAppId("••••••••••••••••••••••");
+      if (symblAppSecret && symblAppSecret !== "••••••••••••••••••••••") setSymblAppSecret("••••••••••••••••••••••");
       
       toast.success("API keys updated successfully!");
     } catch (error) {
@@ -257,6 +285,28 @@ const Settings = () => {
                     onChange={(e) => setStripeKey(e.target.value)}
                   />
                   <p className="text-xs text-muted-foreground">Used for payment processing (optional)</p>
+                </div>
+                
+                <div className="grid w-full items-center gap-1.5">
+                  <Label htmlFor="symblAppId">Symbl App ID</Label>
+                  <Input
+                    id="symblAppId"
+                    type="password"
+                    value={symblAppId}
+                    onChange={(e) => setSymblAppId(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">Used for meeting transcription and analysis</p>
+                </div>
+                
+                <div className="grid w-full items-center gap-1.5">
+                  <Label htmlFor="symblAppSecret">Symbl App Secret</Label>
+                  <Input
+                    id="symblAppSecret"
+                    type="password"
+                    value={symblAppSecret}
+                    onChange={(e) => setSymblAppSecret(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">Used for meeting transcription and analysis</p>
                 </div>
                 
                 <Button 

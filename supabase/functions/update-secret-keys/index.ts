@@ -60,7 +60,7 @@ serve(async (req) => {
     // Process Symbl API credentials if provided
     if (keys.symbl_app_id) {
       keysToStore['symbl_app_id'] = keys.symbl_app_id;
-      keyStatus.symbl = keys.symbl_app_secret ? true : false;
+      keyStatus.symbl = keys.symbl_app_secret ? true : keyStatus.symbl;
     }
     
     if (keys.symbl_app_secret) {
