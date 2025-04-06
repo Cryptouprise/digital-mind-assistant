@@ -7,18 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/componen
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
-import { fetchMeetings, uploadMeetingAudio } from "@/utils/symblClient";
+import { fetchMeetings, uploadMeetingAudio, Meeting } from "@/utils/symblClient";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useQuery } from "@tanstack/react-query";
-
-interface Meeting {
-  id: string;
-  title: string;
-  date: string;
-  summary: string;
-  status?: string;
-  symbl_conversation_id?: string;
-}
 
 const Meetings = () => {
   const [audioUrl, setAudioUrl] = useState("");
