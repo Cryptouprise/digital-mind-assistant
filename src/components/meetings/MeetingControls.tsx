@@ -28,10 +28,10 @@ const MeetingControls = ({
           size="sm" 
           disabled={isSaving}
           onClick={onSaveSession}
-          className="flex items-center gap-1"
+          className="flex items-center gap-1 bg-slate-700 hover:bg-slate-600 border-slate-600 text-white"
         >
           {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-          <span>Save Session</span>
+          <span>Save</span>
         </Button>
         <Button 
           variant="destructive" 
@@ -41,7 +41,7 @@ const MeetingControls = ({
           className="flex items-center gap-1"
         >
           {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <MicOff className="h-3 w-3" />}
-          <span>End Meeting</span>
+          <span>End</span>
         </Button>
       </div>
     );
@@ -49,11 +49,11 @@ const MeetingControls = ({
 
   return (
     <Button 
-      variant="secondary" 
+      variant="default" 
       size="sm" 
       disabled={isLoading}
       onClick={onStartMeeting}
-      className="flex items-center gap-1"
+      className="flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white font-medium"
     >
       {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mic className="h-3 w-3" />}
       <span>Start Meeting</span>

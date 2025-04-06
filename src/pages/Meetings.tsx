@@ -18,7 +18,8 @@ import SymblRealtime from "@/components/meetings/SymblRealtime";
 import JoinMeetingModal from "@/components/meetings/JoinMeetingModal";
 import ZoomMeeting from "@/components/meetings/ZoomMeeting";
 import { Button } from "@/components/ui/button";
-import { Link as LinkIcon, Video } from "lucide-react";
+import { Link as LinkIcon, Video, Home } from "lucide-react";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 interface LocationState {
   activeZoomMeeting?: {
@@ -115,33 +116,60 @@ const Meetings = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white pb-4 pt-14 px-4">
-      <main className="p-2 md:p-6 max-w-5xl mx-auto h-full overflow-y-auto">
-        <div className={`mb-4 md:mb-6 ${isMobile ? 'flex flex-col gap-2' : 'flex justify-between items-center'}`}>
+    <div className="min-h-screen bg-slate-900 text-white pb-6">
+      {/* Fixed navigation header */}
+      <div className="fixed top-0 left-0 right-0 z-40 bg-slate-800 border-b border-slate-700 py-3 px-4">
+        <div className="max-w-5xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <CalendarCheck className="h-5 w-5 md:h-6 md:w-6 text-blue-400" />
-            <h1 className="text-2xl md:text-3xl font-bold">Meeting Insights</h1>
+            <CalendarCheck className="h-5 w-5 text-blue-400" />
+            <h1 className="text-xl font-bold">Meeting Insights</h1>
           </div>
+          
           <div className="flex gap-2 items-center">
             {!activeZoomMeeting && (
               <Button 
                 variant="default" 
                 size="sm" 
                 onClick={() => setShowJoinModal(true)}
-                className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700"
+                className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 border-blue-500"
               >
                 <LinkIcon className="h-4 w-4" />
-                Join Zoom Meeting
+                <span className={isMobile ? "sr-only" : ""}>Join Meeting</span>
               </Button>
             )}
-            <Link to="/" className="flex items-center text-blue-400 hover:underline text-sm md:text-base">
-              <ArrowLeft className="mr-1 h-3 w-3 md:h-4 md:w-4" />
-              Back to Dashboard
-            </Link>
+            
+            {isMobile ? (
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="outline" size="icon" className="h-8 w-8">
+                    <Home className="h-4 w-4" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="right" className="w-[250px] bg-slate-800 border-slate-700 text-white p-4">
+                  <div className="mt-6 space-y-4">
+                    <Link to="/" className="flex items-center gap-2 text-blue-400 hover:text-blue-300 py-2 px-3 rounded-md hover:bg-slate-700">
+                      <Home className="h-4 w-4" />
+                      Dashboard
+                    </Link>
+                    <Link to="/chat" className="flex items-center gap-2 text-blue-400 hover:text-blue-300 py-2 px-3 rounded-md hover:bg-slate-700">
+                      <Video className="h-4 w-4" />
+                      Chat
+                    </Link>
+                  </div>
+                </SheetContent>
+              </Sheet>
+            ) : (
+              <Link to="/" className="flex items-center text-blue-400 hover:underline">
+                <ArrowLeft className="mr-1 h-4 w-4" />
+                Back to Dashboard
+              </Link>
+            )}
           </div>
         </div>
+      </div>
 
-        <div className="space-y-4 md:space-y-6">
+      <main className="pt-16 px-4 max-w-5xl mx-auto">
+        <div className="space-y-4 md:space-y-6 mt-4">
           {activeZoomMeeting ? (
             <ErrorBoundary>
               <ZoomMeeting 

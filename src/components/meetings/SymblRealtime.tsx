@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -203,7 +202,7 @@ export const SymblRealtime: React.FC<SymblRealtimeProps> = ({ meetingId }) => {
   };
   
   return (
-    <Card className="bg-slate-800 border-slate-700 text-white mb-6 overflow-hidden">
+    <Card className="bg-slate-800 border-slate-700 text-white mb-6 overflow-hidden shadow-lg">
       <CardHeader className="pb-2 bg-gradient-to-r from-blue-900 to-slate-800 border-b border-slate-700">
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -233,22 +232,31 @@ export const SymblRealtime: React.FC<SymblRealtimeProps> = ({ meetingId }) => {
       <CardContent className="p-0">
         {isConnected ? (
           <Tabs defaultValue="transcription" value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid grid-cols-3 bg-slate-900 p-0 rounded-none">
-              <TabsTrigger value="transcription" className="data-[state=active]:bg-slate-800 py-3">
+            <TabsList className="grid grid-cols-3 bg-slate-900 p-0 rounded-none sticky top-0 z-10">
+              <TabsTrigger 
+                value="transcription" 
+                className="data-[state=active]:bg-slate-800 data-[state=active]:text-white py-3 text-slate-300"
+              >
                 <Mic className="h-4 w-4 mr-2" />
                 Transcription
               </TabsTrigger>
-              <TabsTrigger value="insights" className="data-[state=active]:bg-slate-800 py-3">
+              <TabsTrigger 
+                value="insights" 
+                className="data-[state=active]:bg-slate-800 data-[state=active]:text-white py-3 text-slate-300"
+              >
                 <Lightbulb className="h-4 w-4 mr-2" />
                 Insights
               </TabsTrigger>
-              <TabsTrigger value="speakers" className="data-[state=active]:bg-slate-800 py-3">
+              <TabsTrigger 
+                value="speakers" 
+                className="data-[state=active]:bg-slate-800 data-[state=active]:text-white py-3 text-slate-300"
+              >
                 <Volume2 className="h-4 w-4 mr-2" />
                 Speakers
               </TabsTrigger>
             </TabsList>
             
-            <TabsContent value="transcription" className="p-4">
+            <TabsContent value="transcription" className="p-0">
               <LiveTranscription 
                 isConnected={isConnected}
                 transcription={transcription}
@@ -256,25 +264,25 @@ export const SymblRealtime: React.FC<SymblRealtimeProps> = ({ meetingId }) => {
               />
             </TabsContent>
             
-            <TabsContent value="insights" className="p-4">
+            <TabsContent value="insights" className="p-0">
               <InsightsList insights={insights} />
             </TabsContent>
             
-            <TabsContent value="speakers" className="p-4">
-              <div className="bg-slate-900 rounded-md p-4">
+            <TabsContent value="speakers" className="p-0">
+              <div className="bg-slate-900/60 rounded-md p-4 m-4">
                 <h3 className="text-sm font-medium mb-2">Speaker Identification</h3>
                 <div className="space-y-3">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 bg-slate-800 p-2 rounded-md">
                     <div className="w-3 h-3 rounded-full bg-blue-500"></div>
                     <span className="text-sm text-white">John Doe</span>
                     <span className="text-xs text-slate-400 ml-auto">5 min 23s</span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 bg-slate-800 p-2 rounded-md">
                     <div className="w-3 h-3 rounded-full bg-green-500"></div>
                     <span className="text-sm text-white">Jane Smith</span>
                     <span className="text-xs text-slate-400 ml-auto">3 min 10s</span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 bg-slate-800 p-2 rounded-md">
                     <div className="w-3 h-3 rounded-full bg-purple-500"></div>
                     <span className="text-sm text-white">Unknown Speaker</span>
                     <span className="text-xs text-slate-400 ml-auto">1 min 45s</span>
@@ -284,7 +292,7 @@ export const SymblRealtime: React.FC<SymblRealtimeProps> = ({ meetingId }) => {
             </TabsContent>
           </Tabs>
         ) : (
-          <div className="p-6">
+          <div className="p-4">
             <LiveTranscription 
               isConnected={isConnected}
               transcription={transcription}
