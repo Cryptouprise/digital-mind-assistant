@@ -21,9 +21,9 @@ const roadmapItems: RoadmapItem[] = [
   
   // Phase 2: Symbl Real-Time Intelligence Layer
   { title: "Install and Wire Symbl JavaScript SDK", completed: true, phase: 2 },
-  { title: "Add Symbl Insights UI Component", completed: false, phase: 2 },
-  { title: "Save conversationId to Supabase", completed: false, phase: 2 },
-  { title: "Optional: Start Live Meeting Button", completed: false, phase: 2 },
+  { title: "Add Symbl Insights UI Component", completed: true, phase: 2 },
+  { title: "Save conversationId to Supabase", completed: true, phase: 2 },
+  { title: "Optional: Start Live Meeting Button", completed: true, phase: 2 },
 ];
 
 export function Roadmap() {

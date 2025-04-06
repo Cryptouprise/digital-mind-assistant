@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.43.2';
@@ -228,11 +227,10 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } else if (action === 'initRealtime') {
-      // This is a placeholder for initializing Symbl's realtime API
+      // Initialize Symbl's realtime API token
+      console.log("Initializing Symbl realtime token");
       const token = await getSymblToken();
       
-      // For now, we'll just return the token which would be needed for the client
-      // In a real implementation, we would also create a conversationId
       return new Response(
         JSON.stringify({ 
           success: true,
@@ -242,35 +240,44 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } else if (action === 'saveRealtimeSession') {
+      // Save a realtime session to the database
+      console.log("Saving realtime session for conversation:", conversationId);
+      
       if (!conversationId) {
         throw new Error("Missing required parameter: conversationId");
       }
       
       // Create a new meeting entry from the realtime session
       const meetingData = {
+        id: conversationId,
         title: `Live Meeting ${new Date().toISOString().slice(0, 10)}`,
         date: new Date().toISOString(),
         status: 'completed',
         symbl_conversation_id: conversationId,
+        summary: "Real-time meeting session",
         raw_data: {
-          from_realtime: true
+          from_realtime: true,
+          created_at: new Date().toISOString()
         }
       };
       
+      // Insert with upsert to handle potential duplicates
       const { data, error } = await supabase
         .from('meetings')
-        .insert([meetingData])
-        .select()
-        .single();
+        .upsert([meetingData], { onConflict: 'id' })
+        .select();
         
       if (error) {
+        console.error("Error saving realtime session:", error);
         throw new Error(`Failed to save realtime session: ${error.message}`);
       }
+      
+      console.log("Successfully saved realtime session:", data);
       
       return new Response(
         JSON.stringify({
           success: true,
-          meeting: data
+          meeting: data?.[0] || null
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );

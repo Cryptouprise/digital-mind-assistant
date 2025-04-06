@@ -230,3 +230,52 @@ export const runJarvisAutomation = async (meetingId: string): Promise<boolean> =
   }
 };
 
+export const saveRealtimeMeeting = async (conversationId: string): Promise<boolean> => {
+  try {
+    console.log("Saving realtime meeting conversation:", conversationId);
+    
+    const { data, error } = await supabase.functions.invoke('symbl-client', {
+      body: {
+        action: 'saveRealtimeSession',
+        conversationId
+      }
+    });
+    
+    if (error) {
+      console.error('Error saving realtime meeting:', error);
+      throw new Error(error.message);
+    }
+    
+    console.log("Realtime meeting saved:", data);
+    return data?.success || false;
+  } catch (error) {
+    console.error('Error saving realtime meeting:', error);
+    return false;
+  }
+};
+
+export const initSymblRealtime = async (): Promise<{token: string, expiresAt: number}> => {
+  try {
+    const { data, error } = await supabase.functions.invoke('symbl-client', {
+      body: {
+        action: 'initRealtime'
+      }
+    });
+    
+    if (error) {
+      throw new Error(error.message);
+    }
+    
+    if (!data?.token) {
+      throw new Error('Could not initialize Symbl token');
+    }
+    
+    return {
+      token: data.token,
+      expiresAt: data.expiresAt || (Date.now() + 15 * 60 * 1000) // Default 15 min expiration
+    };
+  } catch (error) {
+    console.error('Error initializing Symbl realtime:', error);
+    throw error;
+  }
+};
