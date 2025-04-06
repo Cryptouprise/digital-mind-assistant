@@ -4,12 +4,14 @@ import Navigation from "@/components/Navigation";
 import ChatBot from "@/components/ChatBot";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { Calendar, Mic, Video } from "lucide-react";
+import { Calendar, Mic, Video, Link as LinkIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import JoinMeetingModal from "@/components/meetings/JoinMeetingModal";
 
 const Chat = () => {
   const [showHint, setShowHint] = useState(true);
+  const [showJoinModal, setShowJoinModal] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -21,12 +23,34 @@ const Chat = () => {
     return () => clearTimeout(timer);
   }, []);
   
-  const handleStartMeeting = () => {
+  const handleViewMeetings = () => {
     toast({
       title: "Navigating to Meetings",
       description: "Opening the meetings dashboard for you"
     });
     navigate("/meetings");
+  };
+  
+  const handleStartMeeting = () => {
+    setShowJoinModal(true);
+  };
+  
+  const handleJoinMeeting = (meetingUrl: string, displayName: string, symblToken: string) => {
+    // Navigate to meetings page and pass meeting details through state
+    navigate("/meetings", { 
+      state: { 
+        activeZoomMeeting: { 
+          url: meetingUrl, 
+          displayName, 
+          symblToken 
+        }
+      }
+    });
+    
+    toast({
+      title: "Starting Meeting",
+      description: "Opening Zoom with Symbl.ai integration"
+    });
   };
   
   return (
@@ -60,7 +84,7 @@ const Chat = () => {
                   Meeting Intelligence
                 </h2>
                 <p className="text-sm text-slate-400 mt-1">
-                  Record and analyze meetings for real-time insights and transcriptions
+                  Join Zoom meetings with real-time transcription and insights powered by Symbl.ai
                 </p>
               </div>
               <div className="flex gap-2">
@@ -68,7 +92,7 @@ const Chat = () => {
                   variant="outline" 
                   size="sm" 
                   className="bg-slate-700 border-slate-600 hover:bg-slate-600"
-                  onClick={handleStartMeeting}
+                  onClick={handleViewMeetings}
                 >
                   <Video className="mr-2 h-4 w-4" />
                   View Meetings
@@ -78,8 +102,8 @@ const Chat = () => {
                   size="sm"
                   onClick={handleStartMeeting}
                 >
-                  <Mic className="mr-2 h-4 w-4" />
-                  Start Meeting
+                  <LinkIcon className="mr-2 h-4 w-4" />
+                  Join Zoom Meeting
                 </Button>
               </div>
             </div>
@@ -88,6 +112,12 @@ const Chat = () => {
           <ChatBot />
         </div>
       </ScrollArea>
+      
+      <JoinMeetingModal 
+        isOpen={showJoinModal}
+        onClose={() => setShowJoinModal(false)}
+        onJoinSuccess={handleJoinMeeting}
+      />
     </div>
   );
 };
