@@ -5,16 +5,23 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Volume2, VolumeX } from "lucide-react";
+import { Volume2, VolumeX, Mic, MicOff } from "lucide-react";
+import { useBreakpoint } from "@/hooks/use-mobile";
 
 const ChatBot = () => {
   const [messages, setMessages] = useState<Array<{ sender: string; text: string }>>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const isMobile = useBreakpoint(768);
+  
+  // Media recorder for voice input
+  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const audioChunks = useRef<Blob[]>([]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -140,6 +147,134 @@ const ChatBot = () => {
     }
   };
 
+  const startListening = async () => {
+    try {
+      // Request microphone permission
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      toast.success("Microphone access granted");
+
+      // Create a new MediaRecorder instance
+      const recorder = new MediaRecorder(stream);
+      setMediaRecorder(recorder);
+      audioChunks.current = [];
+
+      // Event handlers for the recorder
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          audioChunks.current.push(e.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunks.current, { type: 'audio/webm' });
+        await processAudioInput(audioBlob);
+        audioChunks.current = [];
+      };
+
+      // Start recording
+      recorder.start();
+      setIsListening(true);
+      toast.info("Listening... Speak now");
+    } catch (error) {
+      console.error('Error accessing microphone:', error);
+      toast.error("Failed to access microphone. Please check your permissions.");
+    }
+  };
+
+  const stopListening = () => {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+      setIsListening(false);
+      toast.info("Processing your voice input...");
+
+      // Stop all tracks to release microphone
+      mediaRecorder.stream.getTracks().forEach(track => track.stop());
+    }
+  };
+
+  const processAudioInput = async (audioBlob: Blob) => {
+    try {
+      // Convert blob to base64
+      const reader = new FileReader();
+      
+      reader.onloadend = async () => {
+        const base64Audio = reader.result as string;
+        const base64Data = base64Audio.split(',')[1]; // Remove the data URL prefix
+
+        setIsLoading(true);
+        
+        // Send to Supabase edge function for speech-to-text
+        const { data, error } = await supabase.functions.invoke('voice-to-text', {
+          body: { audio: base64Data }
+        });
+
+        if (error || !data?.text) {
+          console.error('Error in voice-to-text:', error);
+          toast.error("Failed to process your voice. Please try again.");
+          setIsLoading(false);
+          return;
+        }
+
+        // Set the transcribed text as input and send it
+        const transcribedText = data.text.trim();
+        
+        if (transcribedText) {
+          setInput(transcribedText);
+          
+          // Add user message with transcribed text
+          const userMessage = { sender: "user", text: transcribedText };
+          setMessages((prev) => [...prev, userMessage]);
+
+          // Now send the message to the chat function
+          try {
+            const { data: chatData, error: chatError } = await supabase.functions.invoke('chat', {
+              body: { message: transcribedText }
+            });
+
+            if (chatError) {
+              console.error('Error calling chat function:', chatError);
+              toast.error("Failed to get a response. Please try again.");
+              const errorMessage = { 
+                sender: "jarvis", 
+                text: "Sorry, I encountered an error processing your request. Please try again." 
+              };
+              setMessages((prev) => [...prev, errorMessage]);
+            } else {
+              // Add bot response
+              const botResponse = chatData.response;
+              const botMessage = { sender: "jarvis", text: botResponse };
+              setMessages((prev) => [...prev, botMessage]);
+              
+              // If audio is enabled, convert the text to speech
+              if (audioEnabled) {
+                await speakText(botResponse);
+              }
+            }
+          } catch (chatErr) {
+            console.error('Error in chat:', chatErr);
+            toast.error("An unexpected error occurred. Please try again.");
+            const errorMessage = { 
+              sender: "jarvis", 
+              text: "Sorry, I encountered an unexpected error. Please try again." 
+            };
+            setMessages((prev) => [...prev, errorMessage]);
+          }
+        } else {
+          toast.error("Could not understand audio. Please try again.");
+        }
+        
+        setIsLoading(false);
+        setInput("");
+      };
+      
+      reader.readAsDataURL(audioBlob);
+    } catch (error) {
+      console.error('Error processing audio input:', error);
+      toast.error("Failed to process audio. Please try again.");
+      setIsLoading(false);
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -156,15 +291,26 @@ const ChatBot = () => {
             <span className="inline-block w-4 h-4 border-2 border-t-transparent border-blue-600 rounded-full animate-spin"></span>
           )}
         </h2>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={toggleAudio} 
-          title={audioEnabled ? "Disable voice responses" : "Enable voice responses"}
-          className={audioEnabled ? "text-primary" : "text-muted-foreground"}
-        >
-          {audioEnabled ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={toggleAudio} 
+            title={audioEnabled ? "Disable voice responses" : "Enable voice responses"}
+            className={audioEnabled ? "text-primary" : "text-muted-foreground"}
+          >
+            {audioEnabled ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
+          </Button>
+          <Button
+            variant={isListening ? "destructive" : "outline"}
+            size="icon"
+            onClick={isListening ? stopListening : startListening}
+            disabled={isLoading}
+            title={isListening ? "Stop listening" : "Start voice input"}
+          >
+            {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+          </Button>
+        </div>
       </div>
       
       <ScrollArea className="h-80 mb-4 p-2 rounded-md border">
@@ -200,21 +346,35 @@ const ChatBot = () => {
         </div>
       </ScrollArea>
       
-      <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row gap-2">
         <Input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Ask Jarvis..."
-          disabled={isLoading}
+          disabled={isLoading || isListening}
           className="flex-1"
         />
-        <Button 
-          onClick={sendMessage} 
-          disabled={isLoading || !input.trim()}
-        >
-          Send
-        </Button>
+        <div className="flex gap-2">
+          {!isMobile && (
+            <Button
+              variant="outline"
+              onClick={isListening ? stopListening : startListening}
+              disabled={isLoading}
+              className="hidden sm:flex items-center gap-1"
+            >
+              {isListening ? "Stop" : "Voice Input"}
+              {isListening ? <MicOff className="h-4 w-4 ml-1" /> : <Mic className="h-4 w-4 ml-1" />}
+            </Button>
+          )}
+          <Button 
+            onClick={sendMessage} 
+            disabled={isLoading || isListening || !input.trim()}
+            className="w-full sm:w-auto"
+          >
+            Send
+          </Button>
+        </div>
       </div>
     </div>
   );
