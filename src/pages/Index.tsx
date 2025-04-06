@@ -8,8 +8,8 @@ import Navigation from "@/components/Navigation";
 
 const Index = () => {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-gray-800 text-white">
-      <Navigation darkTheme={true} />
+    <div className="min-h-screen bg-slate-900 text-white">
+      <Navigation />
 
       {/* Hero Section */}
       <main className="p-6 max-w-5xl mx-auto">

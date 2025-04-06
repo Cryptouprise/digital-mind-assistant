@@ -5,8 +5,8 @@ import Navigation from "@/components/Navigation";
 
 const Chat = () => {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-gray-800 text-white">
-      <Navigation darkTheme={true} />
+    <div className="min-h-screen bg-slate-900 text-white">
+      <Navigation />
       <div className="container py-8 max-w-5xl mx-auto">
         <Card className="bg-slate-800 border-slate-700 text-white">
           <CardHeader>
