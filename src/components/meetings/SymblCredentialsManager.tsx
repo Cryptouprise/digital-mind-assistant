@@ -128,6 +128,7 @@ const SymblCredentialsManager = ({ credentialsSet, onCredentialsUpdate }: SymblC
             size="sm"
             onClick={() => setCredentialsDialogOpen(true)}
             className="flex items-center gap-1"
+            data-credentials-button="true"
           >
             <KeyRound className="h-4 w-4" />
             {credentialsSet ? "Update Credentials" : "Set Credentials"}
@@ -141,6 +142,14 @@ const SymblCredentialsManager = ({ credentialsSet, onCredentialsUpdate }: SymblC
             <DialogTitle>Symbl API Credentials</DialogTitle>
             <DialogDescription className="text-gray-300">
               Enter your Symbl API credentials to enable meeting transcription and insights.
+              <a 
+                href="https://platform.symbl.ai/#/login" 
+                target="_blank" 
+                rel="noreferrer" 
+                className="block mt-2 text-blue-400 hover:underline"
+              >
+                Get your credentials from the Symbl Platform
+              </a>
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -172,7 +181,7 @@ const SymblCredentialsManager = ({ credentialsSet, onCredentialsUpdate }: SymblC
             <Button variant="outline" onClick={() => setCredentialsDialogOpen(false)} disabled={isSaving}>
               Cancel
             </Button>
-            <Button onClick={handleCredentialsSave} disabled={isSaving}>
+            <Button onClick={handleCredentialsSave} disabled={isSaving || !symblAppId || !symblAppSecret}>
               {isSaving ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
