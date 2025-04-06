@@ -16,16 +16,21 @@ const Navigation = () => {
   const toggleMobileMenu = () => setMobileMenuOpen(prev => !prev);
 
   return (
-    <nav className="bg-slate-950 text-white p-4 shadow-md">
+    <nav className="bg-slate-950 text-white p-4 shadow-md w-full">
       <div className="container mx-auto flex justify-between items-center">
         <div className="flex items-center gap-2">
           <BrainCircuit className="h-6 w-6 text-blue-400" />
           <h1 className="text-xl font-bold">Jarvis AI</h1>
         </div>
         
-        {/* Mobile menu button */}
+        {/* Mobile menu button - made more prominent */}
         <div className="md:hidden">
-          <Button variant="ghost" size="icon" onClick={toggleMobileMenu} className="text-white">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={toggleMobileMenu} 
+            className="text-white border border-slate-700 hover:bg-slate-800"
+          >
             {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </Button>
         </div>
@@ -60,30 +65,30 @@ const Navigation = () => {
         </div>
       </div>
       
-      {/* Mobile menu */}
+      {/* Mobile menu - improved visibility and styling */}
       {mobileMenuOpen && (
-        <div className="md:hidden mt-4 pb-2">
-          <div className="flex flex-col space-y-4">
+        <div className="md:hidden mt-4 pb-2 bg-slate-900 rounded-lg border border-slate-800">
+          <div className="flex flex-col space-y-2 p-2">
             <Link to="/" 
-              className="block py-2 px-4 hover:bg-slate-800 rounded transition-colors"
+              className="block py-3 px-4 hover:bg-slate-800 rounded transition-colors"
               onClick={() => setMobileMenuOpen(false)}
             >
               Dashboard
             </Link>
             <Link to="/meetings" 
-              className="block py-2 px-4 hover:bg-slate-800 rounded transition-colors"
+              className="block py-3 px-4 hover:bg-slate-800 rounded transition-colors"
               onClick={() => setMobileMenuOpen(false)}
             >
               Meetings
             </Link>
             <Link to="/chat" 
-              className="block py-2 px-4 hover:bg-slate-800 rounded transition-colors"
+              className="block py-3 px-4 hover:bg-slate-800 rounded transition-colors"
               onClick={() => setMobileMenuOpen(false)}
             >
               Chat
             </Link>
             <Link to="/settings" 
-              className="block py-2 px-4 hover:bg-slate-800 rounded transition-colors"
+              className="block py-3 px-4 hover:bg-slate-800 rounded transition-colors"
               onClick={() => setMobileMenuOpen(false)}
             >
               Settings
@@ -92,7 +97,7 @@ const Navigation = () => {
               <Button 
                 variant="outline" 
                 size="sm"
-                className="flex items-center gap-1 w-fit"
+                className="flex items-center gap-1 w-fit mx-4 my-2"
                 onClick={() => {
                   const event = new CustomEvent('open-symbl-credentials');
                   window.dispatchEvent(event);
