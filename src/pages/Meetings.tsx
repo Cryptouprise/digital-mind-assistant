@@ -72,6 +72,10 @@ const Meetings = () => {
     await refetch();
   };
 
+  const handleRefresh = useCallback(() => {
+    refetch();
+  }, [refetch]);
+
   return (
     <div className="min-h-screen bg-slate-900 text-white">
       <Navigation />
@@ -96,14 +100,14 @@ const Meetings = () => {
 
           <AudioUploader 
             credentialsSet={credentialsSet}
-            onUploadSuccess={() => refetch()}
+            onUploadSuccess={handleRefresh}
           />
 
           <MeetingsList 
             meetings={meetings}
             isLoading={isLoading}
             error={error instanceof Error ? error : null}
-            onRefresh={() => refetch()}
+            onRefresh={handleRefresh}
           />
 
           {meetings.length > 0 && <MeetingSummaries meetings={meetings} />}

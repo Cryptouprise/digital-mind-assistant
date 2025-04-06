@@ -3,7 +3,8 @@ import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Meeting } from "@/utils/symblClient";
-import { CalendarIcon, FileText } from 'lucide-react';
+import { Badge } from "@/components/ui/badge";
+import { CalendarIcon, FileText, Tag } from 'lucide-react';
 
 interface MeetingSummariesProps {
   meetings: Meeting[];
@@ -47,6 +48,19 @@ const MeetingSummaries = ({ meetings }: MeetingSummariesProps) => {
                       {new Date(meeting.date).toLocaleDateString()} at {new Date(meeting.date).toLocaleTimeString()}
                     </CardDescription>
                   </div>
+                  
+                  {meeting.tags && meeting.tags.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <Tag className="h-3 w-3 text-gray-400" />
+                      <div className="flex flex-wrap gap-1">
+                        {meeting.tags.map((tag, i) => (
+                          <Badge key={i} variant="outline" className="bg-slate-700 text-xs border-slate-600">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </CardHeader>
               <CardContent>

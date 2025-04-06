@@ -70,5 +70,19 @@ export const ghlClient = {
         params: { appointmentId }
       }
     });
+  },
+  
+  /**
+   * Send a follow-up message based on meeting data
+   * @param meetingId - Meeting ID
+   * @param contactId - GHL Contact ID
+   */
+  sendFollowUp: async (meetingId: string, contactId: string) => {
+    return await supabase.functions.invoke('ghl-client', {
+      body: {
+        action: 'sendFollowUp',
+        params: { meetingId, contactId }
+      }
+    });
   }
 };
