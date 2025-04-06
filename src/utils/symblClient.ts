@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
 
@@ -203,3 +204,29 @@ export const addTag = async (meetingId: string, tag: string): Promise<boolean> =
     return false;
   }
 };
+
+export const runJarvisAutomation = async (meetingId: string): Promise<boolean> => {
+  try {
+    console.log("Running Jarvis automation for meeting:", meetingId);
+    
+    const { data, error } = await supabase.functions.invoke('jarvis-actions', {
+      body: {
+        action: 'auto_process',
+        meetingId,
+        automation: true
+      }
+    });
+    
+    if (error) {
+      console.error('Error running Jarvis automation:', error);
+      throw new Error(error.message);
+    }
+    
+    console.log("Jarvis automation results:", data);
+    return data?.success || false;
+  } catch (error) {
+    console.error('Error in Jarvis automation:', error);
+    return false;
+  }
+};
+

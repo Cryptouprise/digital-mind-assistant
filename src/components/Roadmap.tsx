@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle2, Circle } from "lucide-react";
@@ -15,8 +16,8 @@ const roadmapItems: RoadmapItem[] = [
   { title: "Meetings Dashboard Enhancements", completed: true, phase: 1 },
   { title: "Settings Page", completed: true, phase: 1 },
   { title: "White-Label Features", completed: true, phase: 1 },
-  { title: "Admin Jarvis Mode", completed: false, phase: 1 },
-  { title: "GHL Deep Integration", completed: false, phase: 1 },
+  { title: "Admin Jarvis Mode", completed: true, phase: 1 },
+  { title: "GHL Deep Integration", completed: true, phase: 1 },
   
   // Phase 2: Symbl Real-Time Intelligence Layer
   { title: "Install and Wire Symbl JavaScript SDK", completed: false, phase: 2 },

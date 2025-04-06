@@ -1,12 +1,12 @@
 
 import React, { useState } from 'react';
-import { RefreshCcw, AlertCircle, CheckCircle, Loader2, Tag, Link, Send, MessageSquare } from 'lucide-react';
+import { RefreshCcw, AlertCircle, CheckCircle, Loader2, Tag, Link, Send, MessageSquare, Zap } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Meeting, sendFollowUp, addTag } from "@/utils/symblClient";
+import { Meeting, sendFollowUp, addTag, runJarvisAutomation } from "@/utils/symblClient";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -22,6 +22,7 @@ interface MeetingsListProps {
 const MeetingsList = ({ meetings, isLoading, error, onRefresh }: MeetingsListProps) => {
   const { toast } = useToast();
   const [processingMeeting, setProcessingMeeting] = useState<string | null>(null);
+  const [automatingMeeting, setAutomatingMeeting] = useState<string | null>(null);
   const [tagDialogOpen, setTagDialogOpen] = useState(false);
   const [currentMeetingId, setCurrentMeetingId] = useState<string | null>(null);
   const [newTag, setNewTag] = useState('');
@@ -62,6 +63,36 @@ const MeetingsList = ({ meetings, isLoading, error, onRefresh }: MeetingsListPro
       });
     } finally {
       setProcessingMeeting(null);
+    }
+  };
+
+  const handleRunAutomation = async (meetingId: string) => {
+    setAutomatingMeeting(meetingId);
+    
+    try {
+      const success = await runJarvisAutomation(meetingId);
+      
+      if (success) {
+        toast({
+          title: "Automation complete",
+          description: "Jarvis has processed the meeting and applied relevant actions",
+        });
+        onRefresh();
+      } else {
+        toast({
+          title: "Automation failed",
+          description: "Jarvis could not complete the requested automation",
+          variant: "destructive",
+        });
+      }
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred during automation",
+        variant: "destructive",
+      });
+    } finally {
+      setAutomatingMeeting(null);
     }
   };
 
@@ -198,6 +229,29 @@ const MeetingsList = ({ meetings, isLoading, error, onRefresh }: MeetingsListPro
                             </Tooltip>
                           </TooltipProvider>
                         )}
+                        
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0" 
+                                onClick={() => handleRunAutomation(meeting.id)}
+                                disabled={automatingMeeting === meeting.id || meeting.status !== 'completed'}
+                              >
+                                {automatingMeeting === meeting.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin text-blue-400" />
+                                ) : (
+                                  <Zap className={`h-4 w-4 ${meeting.status === 'completed' ? 'text-yellow-400' : 'text-gray-500'}`} />
+                                )}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{meeting.status !== 'completed' ? 'Meeting must be completed to run automation' : 'Run Jarvis automation'}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                         
                         <TooltipProvider>
                           <Tooltip>

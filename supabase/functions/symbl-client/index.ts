@@ -21,7 +21,7 @@ serve(async (req) => {
   }
 
   try {
-    const { action, url, fileContent, fileName, webhookUrl, meetingId } = await req.json();
+    const { action, url, fileContent, fileName, webhookUrl, meetingId, conversationId } = await req.json();
 
     // Create Supabase client for database operations
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -225,6 +225,53 @@ serve(async (req) => {
       
       return new Response(
         JSON.stringify(meeting),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } else if (action === 'initRealtime') {
+      // This is a placeholder for initializing Symbl's realtime API
+      const token = await getSymblToken();
+      
+      // For now, we'll just return the token which would be needed for the client
+      // In a real implementation, we would also create a conversationId
+      return new Response(
+        JSON.stringify({ 
+          success: true,
+          token,
+          expiresAt: tokenExpiration
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } else if (action === 'saveRealtimeSession') {
+      if (!conversationId) {
+        throw new Error("Missing required parameter: conversationId");
+      }
+      
+      // Create a new meeting entry from the realtime session
+      const meetingData = {
+        title: `Live Meeting ${new Date().toISOString().slice(0, 10)}`,
+        date: new Date().toISOString(),
+        status: 'completed',
+        symbl_conversation_id: conversationId,
+        raw_data: {
+          from_realtime: true
+        }
+      };
+      
+      const { data, error } = await supabase
+        .from('meetings')
+        .insert([meetingData])
+        .select()
+        .single();
+        
+      if (error) {
+        throw new Error(`Failed to save realtime session: ${error.message}`);
+      }
+      
+      return new Response(
+        JSON.stringify({
+          success: true,
+          meeting: data
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } else {

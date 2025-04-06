@@ -14,6 +14,7 @@ import SymblCredentialsManager from "@/components/meetings/SymblCredentialsManag
 import MeetingsList from "@/components/meetings/MeetingsList";
 import MeetingSummaries from "@/components/meetings/MeetingSummaries";
 import AudioUploader from "@/components/meetings/AudioUploader";
+import SymblRealtime from "@/components/meetings/SymblRealtime";
 
 const Meetings = () => {
   const [credentialsSet, setCredentialsSet] = useState<boolean | null>(null);
@@ -102,6 +103,8 @@ const Meetings = () => {
             credentialsSet={credentialsSet}
             onUploadSuccess={handleRefresh}
           />
+          
+          <SymblRealtime />
 
           <MeetingsList 
             meetings={meetings}
