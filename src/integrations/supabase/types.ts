@@ -176,6 +176,36 @@ export type Database = {
           },
         ]
       }
+      meetings: {
+        Row: {
+          date: string
+          id: string
+          raw_data: Json | null
+          status: string | null
+          summary: string | null
+          symbl_conversation_id: string | null
+          title: string
+        }
+        Insert: {
+          date?: string
+          id?: string
+          raw_data?: Json | null
+          status?: string | null
+          summary?: string | null
+          symbl_conversation_id?: string | null
+          title: string
+        }
+        Update: {
+          date?: string
+          id?: string
+          raw_data?: Json | null
+          status?: string | null
+          summary?: string | null
+          symbl_conversation_id?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
       notification_settings: {
         Row: {
           ai_signals: boolean
