@@ -61,3 +61,23 @@ export const formatTime = (seconds: number): string => {
   const secs = (seconds % 60).toString().padStart(2, '0');
   return `${mins}:${secs}`;
 };
+
+/**
+ * Debounce helper function to limit function calls
+ */
+export const debounce = <F extends (...args: any[]) => any>(
+  func: F,
+  wait: number
+): ((...args: Parameters<F>) => void) => {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+  
+  return (...args: Parameters<F>) => {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+    
+    timeout = setTimeout(() => {
+      func(...args);
+    }, wait);
+  };
+};

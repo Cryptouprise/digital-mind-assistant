@@ -32,7 +32,7 @@ const Chat = () => {
             </h1>
             
             {showHint && (
-              <div className="text-sm bg-blue-900/30 text-blue-300 px-3 py-1.5 rounded-md">
+              <div className="text-sm bg-blue-900/30 text-blue-300 px-3 py-1.5 rounded-md animate-pulse">
                 Click the microphone icon to start voice conversation
               </div>
             )}

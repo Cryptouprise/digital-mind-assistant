@@ -47,20 +47,25 @@ const VoiceRecognition: React.FC<VoiceRecognitionProps> = ({
 
       recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
         let interimText = '';
+        let finalText = '';
+        let hasFinalResult = false;
 
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const transcript = event.results[i][0].transcript;
           if (!event.results[i].isFinal) {
             interimText += transcript;
-          } else if (event.results[i].isFinal) {
-            // Final result - process it immediately
-            if (transcript && !processingRef.current) {
-              processingRef.current = true;
-              onTranscriptFinalized(transcript.trim());
-              setInterimTranscript("");
-              return;
-            }
+          } else {
+            finalText += transcript;
+            hasFinalResult = true;
           }
+        }
+
+        // If we have a final result, process it immediately
+        if (hasFinalResult && finalText.trim() && !processingRef.current) {
+          processingRef.current = true;
+          onTranscriptFinalized(finalText.trim());
+          setInterimTranscript("");
+          return;
         }
 
         // Update the interim transcript for display
@@ -72,14 +77,14 @@ const VoiceRecognition: React.FC<VoiceRecognitionProps> = ({
             window.clearTimeout(speechTimeoutRef.current);
           }
           
-          // Process speech after a short pause (750ms)
+          // Process speech after a short pause (600ms - shorter than before for more responsiveness)
           speechTimeoutRef.current = window.setTimeout(() => {
             if (interimText.trim() && !processingRef.current) {
               processingRef.current = true;
               onTranscriptFinalized(interimText.trim());
               setInterimTranscript("");
             }
-          }, 750);
+          }, 600);
         }
       };
 
@@ -87,6 +92,7 @@ const VoiceRecognition: React.FC<VoiceRecognitionProps> = ({
         console.error('Speech recognition error:', event.error);
         
         if (event.error === 'no-speech') {
+          // Don't show toast for no-speech as it's common and not a critical error
           console.log('No speech detected');
         } else if (event.error === 'audio-capture') {
           toast.error("No microphone detected. Please check your device.");
@@ -107,7 +113,7 @@ const VoiceRecognition: React.FC<VoiceRecognitionProps> = ({
         
         // Auto restart if it's supposed to be listening and not speaking
         if (isListening && !isSpeaking && !processingRef.current) {
-          // Add a small delay to prevent rapid restarts
+          // Add a small delay to prevent rapid restarts but make it shorter for responsiveness
           restartTimeoutRef.current = window.setTimeout(() => {
             try {
               if (recognitionRef.current && isListening && !isSpeaking) {
@@ -117,7 +123,7 @@ const VoiceRecognition: React.FC<VoiceRecognitionProps> = ({
             } catch (e) {
               console.error('Error restarting speech recognition:', e);
             }
-          }, 300);
+          }, 200);
         }
       };
     }
@@ -139,9 +145,9 @@ const VoiceRecognition: React.FC<VoiceRecognitionProps> = ({
         }
       }
     };
-  }, [isRecognitionSupported, isListening, isSpeaking, onTranscriptFinalized]);
+  }, [isRecognitionSupported]);
 
-  // Effect to handle speech recognition start/stop
+  // Effect to handle speech recognition start/stop based on isListening and isSpeaking states
   useEffect(() => {
     if (isListening && recognitionRef.current && !isSpeaking && !processingRef.current) {
       try {
@@ -162,6 +168,13 @@ const VoiceRecognition: React.FC<VoiceRecognitionProps> = ({
       }
     }
   }, [isListening, isSpeaking]);
+
+  // Reset processing flag when the AI stops speaking
+  useEffect(() => {
+    if (!isSpeaking) {
+      processingRef.current = false;
+    }
+  }, [isSpeaking]);
 
   const startListening = () => {
     if (!isRecognitionSupported) {
@@ -199,6 +212,7 @@ const VoiceRecognition: React.FC<VoiceRecognitionProps> = ({
     
     // Process any pending interim transcript
     if (interimTranscript.trim() && !processingRef.current) {
+      processingRef.current = true;
       onTranscriptFinalized(interimTranscript.trim());
     }
     

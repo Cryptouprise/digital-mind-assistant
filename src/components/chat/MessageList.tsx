@@ -35,15 +35,17 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isSpeaking }) => {
               className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`px-4 py-3 rounded-lg max-w-[80%] shadow-md ${
+                className={`px-4 py-3 rounded-lg max-w-[80%] shadow-md transition-all duration-200 ${
                   msg.sender === "user" 
                     ? "bg-blue-600 text-white" 
-                    : "bg-slate-700 text-slate-100"
+                    : isSpeaking && idx === messages.length - 1 
+                      ? "bg-slate-700 text-slate-100 border border-green-500/30" 
+                      : "bg-slate-700 text-slate-100"
                 }`}
               >
                 <p className="text-base leading-relaxed font-medium">{msg.text}</p>
                 {isSpeaking && idx === messages.length - 1 && msg.sender === "jarvis" && (
-                  <div className="mt-1 text-xs opacity-70 flex items-center">
+                  <div className="mt-1 text-xs text-green-300 flex items-center">
                     <Volume2 className="h-3 w-3 mr-1 animate-pulse" /> Speaking...
                   </div>
                 )}

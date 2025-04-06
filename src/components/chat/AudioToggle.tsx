@@ -15,7 +15,7 @@ const AudioToggle: React.FC<AudioToggleProps> = ({ audioEnabled, toggleAudio }) 
       size="icon" 
       onClick={toggleAudio} 
       title={audioEnabled ? "Disable voice responses" : "Enable voice responses"}
-      className={audioEnabled ? "text-primary" : "text-muted-foreground"}
+      className={`transition-colors duration-200 ${audioEnabled ? "text-primary hover:bg-primary/10" : "text-muted-foreground hover:bg-slate-700/20"}`}
     >
       {audioEnabled ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
     </Button>

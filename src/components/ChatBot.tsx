@@ -25,33 +25,58 @@ const ChatBot = () => {
   const isMobile = useBreakpoint(768);
   const lastTranscriptRef = useRef<string>("");
   const processingRef = useRef<boolean>(false);
+  const responseQueueRef = useRef<{text: string}[]>([]);
+  const isPlayingRef = useRef<boolean>(false);
   
   useEffect(() => {
     // Initialize audio element
     audioRef.current = new Audio();
-    audioRef.current.onended = () => {
-      setIsSpeaking(false);
-      
-      // Restart speech recognition after audio finishes
-      if (isListening) {
-        processingRef.current = false;
-      }
-    };
+    audioRef.current.onended = handleAudioEnded;
+    audioRef.current.onerror = handleAudioError;
     
-    audioRef.current.onerror = () => {
-      setIsSpeaking(false);
-      toast.error("Failed to play audio");
-      processingRef.current = false;
-    };
-
     // Clean up on component unmount
     return () => {
       if (audioRef.current) {
         audioRef.current.pause();
+        audioRef.current.onended = null;
+        audioRef.current.onerror = null;
         audioRef.current = null;
       }
     };
   }, []);
+
+  // Handle audio ending 
+  const handleAudioEnded = () => {
+    setIsSpeaking(false);
+    isPlayingRef.current = false;
+    
+    // Try to play next queued response if any
+    processNextQueuedResponse();
+    
+    // Restart speech recognition after audio finishes
+    if (isListening) {
+      processingRef.current = false;
+    }
+  };
+  
+  // Handle audio error
+  const handleAudioError = () => {
+    setIsSpeaking(false);
+    isPlayingRef.current = false;
+    toast.error("Failed to play audio");
+    processingRef.current = false;
+    processNextQueuedResponse();
+  };
+  
+  // Process next queued response
+  const processNextQueuedResponse = () => {
+    if (responseQueueRef.current.length > 0 && !isPlayingRef.current) {
+      const nextResponse = responseQueueRef.current.shift();
+      if (nextResponse && audioEnabled) {
+        speakText(nextResponse.text).catch(console.error);
+      }
+    }
+  };
 
   // Send text message
   const sendMessage = async () => {
@@ -83,7 +108,12 @@ const ChatBot = () => {
         
         // Speak the response if audio is enabled
         if (audioEnabled) {
-          await speakText(botResponse);
+          // If already speaking, queue this response
+          if (isSpeaking || isPlayingRef.current) {
+            responseQueueRef.current.push({ text: botResponse });
+          } else {
+            await speakText(botResponse);
+          }
         }
       }
     } catch (err) {
@@ -104,6 +134,7 @@ const ChatBot = () => {
   const speakText = async (text: string) => {
     try {
       setIsSpeaking(true);
+      isPlayingRef.current = true;
       
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
         body: { text }
@@ -126,17 +157,25 @@ const ChatBot = () => {
         
         await audioRef.current.play();
         
+        // Event listeners are already set in useEffect, 
+        // but setting URL revocation directly here
+        const originalOnEnded = audioRef.current.onended;
         audioRef.current.onended = () => {
           URL.revokeObjectURL(audioUrl);
-          setIsSpeaking(false);
-          processingRef.current = false;
+          if (originalOnEnded) {
+            // @ts-ignore: We know onended is a function
+            originalOnEnded.call(audioRef.current);
+          }
         };
       }
     } catch (error) {
       console.error('Error in text-to-speech:', error);
       setIsSpeaking(false);
+      isPlayingRef.current = false;
       toast.error("Failed to play audio response");
       processingRef.current = false;
+      // Try next queued response
+      processNextQueuedResponse();
     }
   };
 
@@ -145,11 +184,17 @@ const ChatBot = () => {
     setAudioEnabled(!audioEnabled);
     if (!audioEnabled) {
       toast.success("Voice responses enabled");
+      // Process any pending responses
+      processNextQueuedResponse();
     } else {
       toast.info("Voice responses disabled");
-      if (audioRef.current && isSpeaking) {
+      if (audioRef.current && (isSpeaking || isPlayingRef.current)) {
         audioRef.current.pause();
         setIsSpeaking(false);
+        isPlayingRef.current = false;
+        processingRef.current = false;
+        // Clear queue when audio is disabled
+        responseQueueRef.current = [];
       }
     }
   };
@@ -184,6 +229,7 @@ const ChatBot = () => {
           text: "Sorry, I encountered an error processing your request. Please try again." 
         };
         setMessages((prev) => [...prev, errorMessage]);
+        processingRef.current = false;
       } else {
         const botResponse = chatData.response;
         const botMessage = { sender: "jarvis", text: botResponse };
@@ -191,7 +237,12 @@ const ChatBot = () => {
         
         // Speak response if audio is enabled
         if (audioEnabled) {
-          await speakText(botResponse);
+          // If already speaking, queue this response
+          if (isSpeaking || isPlayingRef.current) {
+            responseQueueRef.current.push({ text: botResponse });
+          } else {
+            await speakText(botResponse);
+          }
         } else {
           processingRef.current = false;
         }
