@@ -1,21 +1,24 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeft, CalendarCheck } from "lucide-react";
+import { ArrowLeft, CalendarCheck, Upload } from "lucide-react";
 import Navigation from "@/components/Navigation";
 import { useQuery } from "@tanstack/react-query";
-import { fetchMeetings } from "@/utils/symblClient";
+import { fetchMeetings, uploadMeetingAudio } from "@/utils/symblClient";
 import { checkSymblCredentials } from "@/utils/checkSymblCredentials";
 import { useToast } from "@/hooks/use-toast";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 // Import our components
 import SymblCredentialsManager from "@/components/meetings/SymblCredentialsManager";
-import AudioUploader from "@/components/meetings/AudioUploader";
 import MeetingsList from "@/components/meetings/MeetingsList";
 import MeetingSummaries from "@/components/meetings/MeetingSummaries";
 
 const Meetings = () => {
   const [credentialsSet, setCredentialsSet] = useState<boolean | null>(null);
+  const [audioUrl, setAudioUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
 
   const { 
@@ -70,12 +73,28 @@ const Meetings = () => {
     await refetch();
   };
 
-  const handleUploadSuccess = () => {
-    toast({
-      title: "Upload Successful",
-      description: "Meeting audio uploaded. Processing will begin shortly.",
-    });
-    refetch();
+  const handleUpload = async () => {
+    if (!audioUrl.trim()) return;
+    
+    setUploading(true);
+    try {
+      await uploadMeetingAudio(audioUrl);
+      toast({
+        title: "Upload Successful",
+        description: "Meeting audio uploaded. Processing will begin shortly.",
+      });
+      refetch();
+      setAudioUrl("");
+    } catch (err) {
+      console.error('Error uploading meeting audio:', err);
+      toast({
+        title: "Upload Failed",
+        description: err instanceof Error ? err.message : "Could not upload audio file.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
@@ -99,10 +118,33 @@ const Meetings = () => {
           onCredentialsUpdate={handleCredentialsUpdate}
         />
 
-        <AudioUploader 
-          credentialsSet={credentialsSet}
-          onUploadSuccess={handleUploadSuccess}
-        />
+        {/* Simple Upload Form */}
+        <div className="mb-6 bg-slate-800 p-4 rounded-lg shadow-lg">
+          <h2 className="text-lg font-semibold mb-2 flex items-center gap-2">
+            <Upload size={18} />
+            Upload Recording for Analysis
+          </h2>
+          <div className="flex gap-3">
+            <Input
+              type="text"
+              value={audioUrl}
+              onChange={(e) => setAudioUrl(e.target.value)}
+              placeholder="Paste audio file URL..."
+              className="bg-slate-700 border-slate-600"
+              disabled={!credentialsSet || uploading}
+            />
+            <Button
+              onClick={handleUpload}
+              disabled={!credentialsSet || uploading || !audioUrl.trim()}
+              className="whitespace-nowrap"
+            >
+              {uploading ? "Uploading..." : "Submit to Jarvis"}
+            </Button>
+          </div>
+          {!credentialsSet && (
+            <p className="mt-2 text-sm text-amber-400">Set Symbl credentials to upload recordings</p>
+          )}
+        </div>
 
         <MeetingsList 
           meetings={meetings}
