@@ -21,45 +21,66 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const { keys } = await req.json();
     
-    // Update OpenAI API key if provided
+    // Store credentials in the settings table rather than setting env vars directly
+    const keysToStore = {};
+    
+    // Store key status in a settings table
+    const keyStatus = {
+      openai: false,
+      elevenlabs: false,
+      ghl: false,
+      stripe: false,
+      symbl: false
+    };
+    
+    // Process OpenAI API key if provided
     if (keys.openai) {
-      await Deno.env.set('OPENAI_API_KEY', keys.openai);
+      keysToStore['openai_api_key'] = keys.openai;
+      keyStatus.openai = true;
     }
     
-    // Update ElevenLabs API key if provided
+    // Process ElevenLabs API key if provided
     if (keys.elevenlabs) {
-      await Deno.env.set('ELEVENLABS_API_KEY', keys.elevenlabs);
+      keysToStore['elevenlabs_api_key'] = keys.elevenlabs;
+      keyStatus.elevenlabs = true;
     }
     
-    // Update GHL API key if provided
+    // Process GHL API key if provided
     if (keys.ghl) {
-      await Deno.env.set('GHL_API_KEY', keys.ghl);
+      keysToStore['ghl_api_key'] = keys.ghl;
+      keyStatus.ghl = true;
     }
     
-    // Update Stripe API key if provided
+    // Process Stripe API key if provided
     if (keys.stripe) {
-      await Deno.env.set('STRIPE_SECRET_KEY', keys.stripe);
+      keysToStore['stripe_secret_key'] = keys.stripe;
+      keyStatus.stripe = true;
     }
     
-    // Update Symbl API credentials if provided
+    // Process Symbl API credentials if provided
     if (keys.symbl_app_id) {
-      await Deno.env.set('SYMBL_APP_ID', keys.symbl_app_id);
+      keysToStore['symbl_app_id'] = keys.symbl_app_id;
+      keyStatus.symbl = keys.symbl_app_secret ? true : false;
     }
     
     if (keys.symbl_app_secret) {
-      await Deno.env.set('SYMBL_APP_SECRET', keys.symbl_app_secret);
+      keysToStore['symbl_app_secret'] = keys.symbl_app_secret;
+      keyStatus.symbl = keys.symbl_app_id ? true : keyStatus.symbl;
     }
     
-    // Store which keys are set in a settings table
-    const keyStatus = {
-      openai: !!keys.openai || Deno.env.get('OPENAI_API_KEY') !== null,
-      elevenlabs: !!keys.elevenlabs || Deno.env.get('ELEVENLABS_API_KEY') !== null,
-      ghl: !!keys.ghl || Deno.env.get('GHL_API_KEY') !== null,
-      stripe: !!keys.stripe || Deno.env.get('STRIPE_SECRET_KEY') !== null,
-      symbl: !!(keys.symbl_app_id || Deno.env.get('SYMBL_APP_ID')) && 
-             !!(keys.symbl_app_secret || Deno.env.get('SYMBL_APP_SECRET'))
-    };
+    // Store each key in the settings table
+    for (const [key, value] of Object.entries(keysToStore)) {
+      const { error } = await supabase
+        .from('settings')
+        .upsert(
+          { key, value },
+          { onConflict: 'key' }
+        );
+        
+      if (error) throw error;
+    }
     
+    // Update the API keys status
     await supabase
       .from('settings')
       .upsert(
@@ -71,7 +92,10 @@ serve(async (req) => {
       );
     
     return new Response(
-      JSON.stringify({ success: true }),
+      JSON.stringify({ 
+        success: true, 
+        message: "API keys stored successfully" 
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {

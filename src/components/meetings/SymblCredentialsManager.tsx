@@ -35,7 +35,7 @@ const SymblCredentialsManager = ({ credentialsSet, onCredentialsUpdate }: SymblC
         return;
       }
 
-      // Update the secrets in Supabase Edge Functions
+      // Update the credentials in Supabase via our edge function
       const { data, error } = await supabase.functions.invoke('update-secret-keys', {
         body: {
           keys: {
@@ -45,19 +45,31 @@ const SymblCredentialsManager = ({ credentialsSet, onCredentialsUpdate }: SymblC
         }
       });
 
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error("Error from edge function:", error);
+        throw new Error(error.message);
+      }
       
-      // Important: Wait a moment (allows secrets to propagate) then check credentials again
+      console.log("Credentials saved response:", data);
+      
+      // Wait a bit longer to ensure credentials are properly stored
+      // and synced across all services
+      toast({
+        title: "Saving credentials",
+        description: "Verifying credentials..."
+      });
+      
+      // Important: Wait a moment (allows credentials to be stored and verified)
       setTimeout(async () => {
         try {
-          // Verify the credentials were actually set
+          // Verify the credentials were actually set correctly
           const areSet = await checkSymblCredentials();
           
           toast({
             title: areSet ? "Success" : "Warning",
             description: areSet 
-              ? "Symbl credentials saved successfully" 
-              : "Credentials were saved but verification failed. Please try again.",
+              ? "Symbl credentials saved and verified successfully" 
+              : "Credentials were saved but verification failed. Please check your credentials and try again.",
             variant: areSet ? "default" : "destructive",
           });
           
@@ -72,13 +84,13 @@ const SymblCredentialsManager = ({ credentialsSet, onCredentialsUpdate }: SymblC
           console.error("Error verifying credentials:", verifyError);
           toast({
             title: "Verification Error",
-            description: "Could not verify if credentials were set properly",
+            description: "Could not verify if credentials were set properly. Please try again.",
             variant: "destructive",
           });
         } finally {
           setIsSaving(false);
         }
-      }, 2000);
+      }, 3000);
     } catch (error) {
       console.error("Error saving credentials:", error);
       toast({
