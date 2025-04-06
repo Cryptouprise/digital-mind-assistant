@@ -8,7 +8,7 @@ import { fetchMeetings } from "@/utils/symblClient";
 import { checkSymblCredentials } from "@/utils/checkSymblCredentials";
 import { useToast } from "@/hooks/use-toast";
 
-// Import our new components
+// Import our components
 import SymblCredentialsManager from "@/components/meetings/SymblCredentialsManager";
 import AudioUploader from "@/components/meetings/AudioUploader";
 import MeetingsList from "@/components/meetings/MeetingsList";
@@ -32,12 +32,21 @@ const Meetings = () => {
   useEffect(() => {
     // Check if Symbl credentials are set
     const checkCredentials = async () => {
-      const areSet = await checkSymblCredentials();
-      setCredentialsSet(areSet);
-      if (!areSet) {
+      try {
+        const areSet = await checkSymblCredentials();
+        setCredentialsSet(areSet);
+        if (!areSet) {
+          toast({
+            title: "Symbl Credentials Required",
+            description: "Please set your Symbl credentials to upload meeting recordings.",
+            variant: "destructive",
+          });
+        }
+      } catch (err) {
+        console.error("Error checking credentials:", err);
         toast({
-          title: "Symbl Credentials Required",
-          description: "Please set your Symbl credentials to upload meeting recordings.",
+          title: "Credential Check Failed",
+          description: "Could not verify Symbl credentials status.",
           variant: "destructive",
         });
       }
@@ -46,9 +55,25 @@ const Meetings = () => {
     checkCredentials();
   }, [toast]);
 
-  if (error) {
-    console.error("Error loading meetings:", error);
-  }
+  const handleCredentialsUpdate = async (isSet: boolean) => {
+    setCredentialsSet(isSet);
+    if (isSet) {
+      toast({
+        title: "Credentials Updated",
+        description: "Your Symbl credentials have been set successfully.",
+      });
+    }
+    // Refetch meetings after credentials update
+    await refetch();
+  };
+
+  const handleUploadSuccess = () => {
+    toast({
+      title: "Upload Successful",
+      description: "Meeting audio uploaded. Processing will begin shortly.",
+    });
+    refetch();
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-gray-800 text-white">
@@ -68,21 +93,22 @@ const Meetings = () => {
 
         <SymblCredentialsManager 
           credentialsSet={credentialsSet}
-          onCredentialsUpdate={setCredentialsSet}
+          onCredentialsUpdate={handleCredentialsUpdate}
         />
 
         <AudioUploader 
           credentialsSet={credentialsSet}
-          onUploadSuccess={() => refetch()}
+          onUploadSuccess={handleUploadSuccess}
         />
 
         <MeetingsList 
           meetings={meetings}
           isLoading={isLoading}
+          error={error instanceof Error ? error : null}
           onRefresh={() => refetch()}
         />
 
-        <MeetingSummaries meetings={meetings} />
+        {meetings.length > 0 && <MeetingSummaries meetings={meetings} />}
       </main>
     </div>
   );
