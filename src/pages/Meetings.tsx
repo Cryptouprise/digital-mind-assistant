@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, CalendarCheck, Upload, RefreshCcw, KeyRound, CheckCircle, AlertCircle } from "lucide-react";
@@ -12,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { checkSymblCredentials } from "@/utils/checkSymblCredentials";
+import { supabase } from "@/integrations/supabase/client";
 
 const Meetings = () => {
   const [audioUrl, setAudioUrl] = useState("");
