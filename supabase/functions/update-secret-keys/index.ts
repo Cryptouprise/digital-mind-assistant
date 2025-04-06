@@ -41,12 +41,23 @@ serve(async (req) => {
       await Deno.env.set('STRIPE_SECRET_KEY', keys.stripe);
     }
     
+    // Update Symbl API credentials if provided
+    if (keys.symbl_app_id) {
+      await Deno.env.set('SYMBL_APP_ID', keys.symbl_app_id);
+    }
+    
+    if (keys.symbl_app_secret) {
+      await Deno.env.set('SYMBL_APP_SECRET', keys.symbl_app_secret);
+    }
+    
     // Store which keys are set in a settings table
     const keyStatus = {
       openai: !!keys.openai || Deno.env.get('OPENAI_API_KEY') !== null,
       elevenlabs: !!keys.elevenlabs || Deno.env.get('ELEVENLABS_API_KEY') !== null,
       ghl: !!keys.ghl || Deno.env.get('GHL_API_KEY') !== null,
-      stripe: !!keys.stripe || Deno.env.get('STRIPE_SECRET_KEY') !== null
+      stripe: !!keys.stripe || Deno.env.get('STRIPE_SECRET_KEY') !== null,
+      symbl: !!(keys.symbl_app_id || Deno.env.get('SYMBL_APP_ID')) && 
+             !!(keys.symbl_app_secret || Deno.env.get('SYMBL_APP_SECRET'))
     };
     
     await supabase

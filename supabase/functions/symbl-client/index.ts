@@ -35,12 +35,14 @@ serve(async (req) => {
         body: JSON.stringify({
           url,
           webhookUrl: webhookUrl || `${req.url.split('/symbl-client')[0]}/meeting-webhook`,
-          name: "Jarvis Auto Meeting Upload",
+          name: "Jarvis Meeting Recording",
         }),
       });
 
       if (!response.ok) {
-        throw new Error(`Symbl API error: ${await response.text()}`);
+        const errorText = await response.text();
+        console.error("Symbl API error response:", errorText);
+        throw new Error(`Symbl API error: ${errorText}`);
       }
 
       const result = await response.json();
@@ -49,6 +51,17 @@ serve(async (req) => {
       
       return new Response(
         JSON.stringify(result),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } else if (action === 'getCredentials') {
+      // For securely checking if credentials are set
+      const appId = Deno.env.get("SYMBL_APP_ID");
+      const appSecret = Deno.env.get("SYMBL_APP_SECRET");
+      
+      return new Response(
+        JSON.stringify({ 
+          credentialsSet: Boolean(appId && appSecret)
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } else {
@@ -80,10 +93,10 @@ async function getSymblToken(): Promise<string> {
   const symblAppSecret = Deno.env.get("SYMBL_APP_SECRET");
   
   if (!symblAppId || !symblAppSecret) {
-    throw new Error("Missing Symbl API credentials");
+    throw new Error("Missing Symbl API credentials. Please set SYMBL_APP_ID and SYMBL_APP_SECRET in your Supabase Edge Function secrets.");
   }
 
-  const response = await fetch("https://api.symbl.ai/oauth2/token", {
+  const response = await fetch("https://api.symbl.ai/oauth2/token:generate", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -96,7 +109,9 @@ async function getSymblToken(): Promise<string> {
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to get Symbl token: ${await response.text()}`);
+    const errorText = await response.text();
+    console.error("Symbl token error:", errorText);
+    throw new Error(`Failed to get Symbl token: ${errorText}`);
   }
 
   const data = await response.json();

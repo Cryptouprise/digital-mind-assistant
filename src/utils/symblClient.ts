@@ -39,7 +39,8 @@ export const fetchMeetings = async (): Promise<Meeting[]> => {
     
     if (error) throw error;
     
-    return (data || []) as Meeting[];
+    // Explicitly type the data as Meeting[]
+    return (data as unknown as Meeting[]) || [];
   } catch (error) {
     console.error('Error fetching meetings:', error);
     throw error;

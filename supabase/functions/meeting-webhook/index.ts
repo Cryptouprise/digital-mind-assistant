@@ -18,62 +18,132 @@ serve(async (req) => {
   }
 
   try {
-    // Parse the webhook payload from Symbl
-    const payload = await req.json();
-    console.log("Received Symbl webhook:", JSON.stringify(payload));
-
-    // Initialize Supabase client
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    
-    // Process the meeting data
-    if (payload.type === 'message_summary' || payload.type === 'conversation_completed') {
-      const meetingData = {
-        symbl_conversation_id: payload.conversationId,
-        title: payload.name || 'Untitled Meeting',
-        date: new Date().toISOString(),
-        status: payload.type === 'conversation_completed' ? 'completed' : 'processing',
-        summary: extractSummary(payload),
-        raw_data: payload
-      };
-      
-      // Save to Supabase
-      const { data, error } = await supabase
-        .from('meetings')
-        .upsert(meetingData, { onConflict: 'symbl_conversation_id' });
-        
-      if (error) {
-        console.error("Error saving meeting data:", error);
-        throw error;
-      }
-      
-      console.log("Successfully processed meeting data:", meetingData.symbl_conversation_id);
+    const webhookData = await req.json();
+
+    console.log("Received Symbl webhook data:", JSON.stringify(webhookData));
+
+    // Get conversation data
+    const conversationId = webhookData?.data?.conversationId;
+    if (!conversationId) {
+      throw new Error('Missing conversationId in webhook payload');
     }
 
-    return new Response(
-      JSON.stringify({ success: true }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  } catch (error) {
-    console.error("Error processing webhook:", error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    // Get conversation metadata from Symbl
+    const response = await fetch(`https://api.symbl.ai/v1/conversations/${conversationId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${await getSymblToken()}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Error fetching conversation data: ${await response.text()}`);
+    }
+
+    const conversationData = await response.json();
+    
+    // Get conversation insights and summary
+    const insightsResponse = await fetch(`https://api.symbl.ai/v1/conversations/${conversationId}/insights`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${await getSymblToken()}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!insightsResponse.ok) {
+      throw new Error(`Error fetching insights: ${await insightsResponse.text()}`);
+    }
+    
+    const insightsData = await insightsResponse.json();
+    
+    // Save to database
+    const meetingData = {
+      title: conversationData.name || `Meeting ${new Date().toISOString()}`,
+      date: new Date(conversationData.startTime || Date.now()).toISOString(),
+      summary: generateSummary(insightsData.insights),
+      status: webhookData.type === 'conversation_completed' ? 'completed' : 'processing',
+      symbl_conversation_id: conversationId,
+      raw_data: {
+        conversation: conversationData,
+        insights: insightsData,
+        webhook: webhookData
       }
-    );
+    };
+
+    const { data, error } = await supabase
+      .from('meetings')
+      .upsert(
+        { 
+          id: webhookData?.data?.conversationId,
+          ...meetingData
+        }, 
+        { onConflict: 'id' }
+      );
+
+    if (error) {
+      throw error;
+    }
+
+    console.log("Successfully processed meeting webhook data");
+    
+    return new Response(JSON.stringify({ success: true }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error('Error in meeting-webhook function:', error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 });
 
-// Helper function to extract summary from Symbl payload
-function extractSummary(payload: any): string {
-  if (payload.type === 'message_summary' && payload.summary && payload.summary.text) {
-    return payload.summary.text;
+// Generate a simple summary from insights
+function generateSummary(insights: any[] = []): string {
+  if (!insights || !insights.length) {
+    return "No summary available yet.";
   }
   
-  if (payload.insights && payload.insights.length > 0) {
-    return payload.insights.map((insight: any) => insight.text).join('\n\n');
-  }
+  // Extract text from the first few insights
+  const summaryPoints = insights
+    .slice(0, 5)
+    .map(insight => insight.text)
+    .filter(Boolean);
+    
+  return summaryPoints.length > 0 
+    ? summaryPoints.join("\n\n")
+    : "No summary available yet.";
+}
+
+// Get Symbl token
+async function getSymblToken(): Promise<string> {
+  const symblAppId = Deno.env.get("SYMBL_APP_ID");
+  const symblAppSecret = Deno.env.get("SYMBL_APP_SECRET");
   
-  return 'No summary available';
+  if (!symblAppId || !symblAppSecret) {
+    throw new Error("Missing Symbl API credentials");
+  }
+
+  const response = await fetch("https://api.symbl.ai/oauth2/token:generate", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      type: "application",
+      appId: symblAppId,
+      appSecret: symblAppSecret,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to get Symbl token: ${await response.text()}`);
+  }
+
+  const data = await response.json();
+  return data.accessToken;
 }
