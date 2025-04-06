@@ -16,26 +16,48 @@ serve(async (req) => {
   try {
     const { message } = await req.json();
     
-    // Here you could integrate with an AI service
-    // For now, we'll use a simple response mechanism
-    let response = "I'm Jarvis, your digital assistant. How can I help you today?";
+    // Retrieve the OpenAI API key from environment variables
+    const openAiApiKey = Deno.env.get('OPENAI_API_KEY');
     
-    if (message.toLowerCase().includes("hello") || message.toLowerCase().includes("hi")) {
-      response = "Hello! How can I assist you today?";
-    } else if (message.toLowerCase().includes("help")) {
-      response = "I can help you with various tasks. Just let me know what you need!";
-    } else if (message.toLowerCase().includes("bye")) {
-      response = "Goodbye! Have a great day!";
-    } else if (message.toLowerCase().includes("thank")) {
-      response = "You're welcome! Is there anything else I can help you with?";
+    if (!openAiApiKey) {
+      throw new Error('OpenAI API key not configured');
     }
+    
+    // Call the OpenAI API
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${openAiApiKey}`
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini", // Using gpt-4o-mini as a more modern and cost-effective alternative
+        messages: [
+          { 
+            role: "system", 
+            content: "You are Jarvis, a helpful and witty AI sales assistant. Provide concise, helpful responses." 
+          },
+          { role: "user", content: message }
+        ],
+        temperature: 0.7,
+      })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("OpenAI API error:", errorData);
+      throw new Error(`OpenAI API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    const reply = data.choices[0].message.content.trim();
 
     // Log the interaction
     console.log(`User message: ${message}`);
-    console.log(`Jarvis response: ${response}`);
+    console.log(`Jarvis response: ${reply}`);
 
     return new Response(
-      JSON.stringify({ response }),
+      JSON.stringify({ response: reply }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
