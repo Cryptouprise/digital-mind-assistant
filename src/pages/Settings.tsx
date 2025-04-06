@@ -8,6 +8,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
+type ApiKeysStatus = {
+  openai: boolean;
+  elevenlabs: boolean;
+  ghl: boolean;
+  stripe: boolean;
+};
+
+type BrandingSettings = {
+  name: string;
+  color: string;
+  logoUrl: string;
+};
+
 const Settings = () => {
   // Brand settings
   const [brandName, setBrandName] = useState("");
@@ -28,27 +41,34 @@ const Settings = () => {
   useEffect(() => {
     const loadSettings = async () => {
       try {
+        // Use any() to bypass TypeScript's type checking for now
+        // since our types don't yet know about the settings table
         const { data: brandData, error: brandError } = await supabase
           .from('settings')
-          .select('value')
+          .select('*')
           .eq('key', 'branding')
           .single();
           
         if (brandData && !brandError) {
-          const parsedData = JSON.parse(brandData.value);
-          setBrandName(parsedData.name || "");
-          setColor(parsedData.color || "#000000");
-          setLogoUrl(parsedData.logoUrl || "");
+          try {
+            const parsedData = JSON.parse(brandData.value) as BrandingSettings;
+            setBrandName(parsedData.name || "");
+            setColor(parsedData.color || "#000000");
+            setLogoUrl(parsedData.logoUrl || "");
+          } catch (e) {
+            console.error("Error parsing branding data:", e);
+          }
         }
         
         // Load API keys (masked)
         const { data: apiKeys, error: apiKeysError } = await supabase.functions.invoke('get-secret-keys');
         
         if (apiKeys && !apiKeysError) {
-          setOpenaiKey(apiKeys.openai ? "••••••••••••••••••••••" : "");
-          setElevenlabsKey(apiKeys.elevenlabs ? "••••••••••••••••••••••" : "");
-          setGhlKey(apiKeys.ghl ? "••••••••••••••••••••••" : "");
-          setStripeKey(apiKeys.stripe ? "••••••••••••••••••••••" : "");
+          const keyStatus = apiKeys as ApiKeysStatus;
+          setOpenaiKey(keyStatus.openai ? "••••••••••••••••••••••" : "");
+          setElevenlabsKey(keyStatus.elevenlabs ? "••••••••••••••••••••••" : "");
+          setGhlKey(keyStatus.ghl ? "••••••••••••••••••••••" : "");
+          setStripeKey(keyStatus.stripe ? "••••••••••••••••••••••" : "");
         }
       } catch (error) {
         console.error("Error loading settings:", error);
@@ -61,19 +81,17 @@ const Settings = () => {
   const saveBrandSettings = async () => {
     setLoadingBrand(true);
     try {
+      // Use any() to bypass TypeScript's type checking for now
       const { error } = await supabase
         .from('settings')
-        .upsert(
-          { 
-            key: 'branding', 
-            value: JSON.stringify({
-              name: brandName,
-              color,
-              logoUrl
-            })
-          },
-          { onConflict: 'key' }
-        );
+        .upsert({
+          key: 'branding',
+          value: JSON.stringify({
+            name: brandName,
+            color,
+            logoUrl
+          })
+        }, { onConflict: 'key' });
       
       if (error) throw error;
       toast.success("Brand settings saved successfully!");
