@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Volume2, VolumeX, Mic, MicOff, Activity } from "lucide-react";
 import { useBreakpoint } from "@/hooks/use-mobile";
+import { processAudioToText, formatTime } from "@/utils/speechUtils";
 
 const ChatBot = () => {
   const [messages, setMessages] = useState<Array<{ sender: string; text: string }>>([]);
@@ -17,6 +18,7 @@ const ChatBot = () => {
   const [audioEnabled, setAudioEnabled] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [interimTranscript, setInterimTranscript] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isMobile = useBreakpoint(768);
@@ -31,7 +33,7 @@ const ChatBot = () => {
   // Auto-scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, interimTranscript]);
 
   // Create audio element on mount
   useEffect(() => {
@@ -74,15 +76,8 @@ const ChatBot = () => {
         window.clearInterval(interimTimer.current);
         interimTimer.current = null;
       }
-      setInterimTranscript("");
     }
   }, [isListening]);
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
-    const secs = (seconds % 60).toString().padStart(2, '0');
-    return `${mins}:${secs}`;
-  };
 
   const sendMessage = async () => {
     if (!input.trim()) return;
@@ -188,9 +183,12 @@ const ChatBot = () => {
 
   const startListening = async () => {
     try {
+      // Clear any previous transcript
+      setInterimTranscript("");
+      
       // Request microphone permission
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      toast.success("Microphone access granted");
+      toast.success("Listening... Speak now");
 
       // Create a new MediaRecorder instance
       const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
@@ -208,7 +206,7 @@ const ChatBot = () => {
 
       recorder.onstop = async () => {
         const audioBlob = new Blob(audioChunks.current, { type: 'audio/webm' });
-        await processAudioInput(audioBlob);
+        await processVoiceInput(audioBlob);
         audioChunks.current = [];
         interimChunks.current = [];
       };
@@ -216,16 +214,15 @@ const ChatBot = () => {
       // Start recording
       recorder.start(1000); // Collect data every second for interim results
       setIsListening(true);
-      toast.info("Listening... Speak now");
       
-      // Setup interim transcript processing
+      // Setup more frequent interim transcript processing (every 1.5 seconds)
       interimTimer.current = window.setInterval(async () => {
-        if (interimChunks.current.length > 0) {
+        if (interimChunks.current.length > 0 && isListening) {
           const interimBlob = new Blob(interimChunks.current, { type: 'audio/webm' });
-          await processInterimAudio(interimBlob);
+          await processInterimTranscript(interimBlob);
           interimChunks.current = []; // Clear interim chunks after processing
         }
-      }, 3000); // Process interim results every 3 seconds
+      }, 1500); // Process interim results every 1.5 seconds
       
     } catch (error) {
       console.error('Error accessing microphone:', error);
@@ -250,120 +247,80 @@ const ChatBot = () => {
     }
   };
 
-  const processInterimAudio = async (audioBlob: Blob) => {
+  const processInterimTranscript = async (audioBlob: Blob) => {
     try {
-      // Convert blob to base64
-      const reader = new FileReader();
+      setIsProcessing(true);
+      const transcribedText = await processAudioToText(audioBlob, true);
       
-      reader.onloadend = async () => {
-        const base64Audio = reader.result as string;
-        const base64Data = base64Audio.split(',')[1]; // Remove the data URL prefix
-        
-        // Only send interim audio if we're still listening
-        if (!isListening) return;
-
-        // Send to Supabase edge function for speech-to-text
-        const { data, error } = await supabase.functions.invoke('voice-to-text', {
-          body: { 
-            audio: base64Data,
-            isInterim: true
-          }
+      if (transcribedText) {
+        setInterimTranscript(prev => {
+          // Append new text, ensuring there's a space between them
+          const newText = prev ? `${prev} ${transcribedText}` : transcribedText;
+          // Limit the length to avoid overwhelming the UI
+          return newText.length > 500 ? newText.slice(-500) : newText;
         });
-
-        if (error || !data?.text) {
-          console.log('Interim transcription failed:', error);
-          return;
-        }
-
-        const transcribedText = data.text.trim();
-        if (transcribedText) {
-          setInterimTranscript(prev => prev ? `${prev} ${transcribedText}` : transcribedText);
-        }
-      };
-      
-      reader.readAsDataURL(audioBlob);
+      }
+      setIsProcessing(false);
     } catch (error) {
       console.log('Error processing interim audio:', error);
+      setIsProcessing(false);
     }
   };
 
-  const processAudioInput = async (audioBlob: Blob) => {
+  const processVoiceInput = async (audioBlob: Blob) => {
     try {
-      // Convert blob to base64
-      const reader = new FileReader();
+      setIsLoading(true);
       
-      reader.onloadend = async () => {
-        const base64Audio = reader.result as string;
-        const base64Data = base64Audio.split(',')[1]; // Remove the data URL prefix
-
-        setIsLoading(true);
+      const transcribedText = await processAudioToText(audioBlob);
+      
+      if (transcribedText) {
+        setInput(transcribedText);
         
-        // Send to Supabase edge function for speech-to-text
-        const { data, error } = await supabase.functions.invoke('voice-to-text', {
-          body: { audio: base64Data }
-        });
+        // Add user message with transcribed text
+        const userMessage = { sender: "user", text: transcribedText };
+        setMessages((prev) => [...prev, userMessage]);
 
-        if (error || !data?.text) {
-          console.error('Error in voice-to-text:', error);
-          toast.error("Failed to process your voice. Please try again.");
-          setIsLoading(false);
-          return;
-        }
+        // Now send the message to the chat function
+        try {
+          const { data: chatData, error: chatError } = await supabase.functions.invoke('chat', {
+            body: { message: transcribedText }
+          });
 
-        // Set the transcribed text as input and send it
-        const transcribedText = data.text.trim();
-        
-        if (transcribedText) {
-          setInput(transcribedText);
-          
-          // Add user message with transcribed text
-          const userMessage = { sender: "user", text: transcribedText };
-          setMessages((prev) => [...prev, userMessage]);
-
-          // Now send the message to the chat function
-          try {
-            const { data: chatData, error: chatError } = await supabase.functions.invoke('chat', {
-              body: { message: transcribedText }
-            });
-
-            if (chatError) {
-              console.error('Error calling chat function:', chatError);
-              toast.error("Failed to get a response. Please try again.");
-              const errorMessage = { 
-                sender: "jarvis", 
-                text: "Sorry, I encountered an error processing your request. Please try again." 
-              };
-              setMessages((prev) => [...prev, errorMessage]);
-            } else {
-              // Add bot response
-              const botResponse = chatData.response;
-              const botMessage = { sender: "jarvis", text: botResponse };
-              setMessages((prev) => [...prev, botMessage]);
-              
-              // If audio is enabled, convert the text to speech
-              if (audioEnabled) {
-                await speakText(botResponse);
-              }
-            }
-          } catch (chatErr) {
-            console.error('Error in chat:', chatErr);
-            toast.error("An unexpected error occurred. Please try again.");
+          if (chatError) {
+            console.error('Error calling chat function:', chatError);
+            toast.error("Failed to get a response. Please try again.");
             const errorMessage = { 
               sender: "jarvis", 
-              text: "Sorry, I encountered an unexpected error. Please try again." 
+              text: "Sorry, I encountered an error processing your request. Please try again." 
             };
             setMessages((prev) => [...prev, errorMessage]);
+          } else {
+            // Add bot response
+            const botResponse = chatData.response;
+            const botMessage = { sender: "jarvis", text: botResponse };
+            setMessages((prev) => [...prev, botMessage]);
+            
+            // If audio is enabled, convert the text to speech
+            if (audioEnabled) {
+              await speakText(botResponse);
+            }
           }
-        } else {
-          toast.error("Could not understand audio. Please try again.");
+        } catch (chatErr) {
+          console.error('Error in chat:', chatErr);
+          toast.error("An unexpected error occurred. Please try again.");
+          const errorMessage = { 
+            sender: "jarvis", 
+            text: "Sorry, I encountered an unexpected error. Please try again." 
+          };
+          setMessages((prev) => [...prev, errorMessage]);
         }
-        
-        setIsLoading(false);
-        setInput("");
-        setInterimTranscript("");
-      };
+      } else {
+        toast.error("Could not understand audio. Please try again.");
+      }
       
-      reader.readAsDataURL(audioBlob);
+      setIsLoading(false);
+      setInput("");
+      setInterimTranscript("");
     } catch (error) {
       console.error('Error processing audio input:', error);
       toast.error("Failed to process audio. Please try again.");
@@ -411,24 +368,28 @@ const ChatBot = () => {
         </div>
       </div>
       
-      {/* Voice recording indicator */}
+      {/* Voice recording indicator with live transcription */}
       {isListening && (
-        <div className="mb-3 p-3 bg-red-900/20 border border-red-500/30 rounded-md flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Activity className="h-4 w-4 text-red-400 animate-pulse" />
-            <span className="text-sm font-medium text-white">Recording voice...</span>
+        <div className="mb-3 p-3 bg-red-900/20 border border-red-500/30 rounded-md">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Activity className="h-4 w-4 text-red-400 animate-pulse" />
+              <span className="text-sm font-medium text-white">Recording voice...</span>
+            </div>
+            <span className="text-sm font-mono text-red-300">{formatTime(recordingTime)}</span>
           </div>
-          <span className="text-sm font-mono text-red-300">{formatTime(recordingTime)}</span>
-        </div>
-      )}
-      
-      {/* Interim transcript area */}
-      {isListening && interimTranscript && (
-        <div className="mb-3 p-3 bg-blue-900/20 border border-blue-500/30 rounded-md">
-          <p className="text-sm text-blue-100 leading-relaxed font-medium">
-            <span className="text-blue-300 text-xs mr-2">Hearing:</span>
-            "{interimTranscript}"
-          </p>
+          
+          {/* Live transcription display */}
+          <div className="bg-slate-900/50 p-2 rounded border border-slate-700/50 mt-1 relative">
+            {isProcessing && (
+              <div className="absolute right-2 top-2">
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+              </div>
+            )}
+            <p className="text-base leading-relaxed text-white font-medium min-h-[2.5rem]">
+              {interimTranscript || <span className="text-slate-400 italic">Listening...</span>}
+            </p>
+          </div>
         </div>
       )}
       
