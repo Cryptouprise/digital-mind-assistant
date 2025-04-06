@@ -48,9 +48,27 @@ export const fetchMeetings = async (): Promise<Meeting[]> => {
     
     // Process meetings to extract tags from raw_data if available
     const processedMeetings = (data || []).map(meeting => {
-      const tags = meeting.raw_data?.tags || [];
-      const contactId = meeting.raw_data?.contact_id || null;
-      const followUpSent = meeting.raw_data?.follow_up_sent || false;
+      // Safely access potential nested properties with proper type checking
+      let tags: string[] = [];
+      let contactId: string | null = null;
+      let followUpSent: boolean = false;
+      
+      if (meeting.raw_data && typeof meeting.raw_data === 'object') {
+        // Check if tags exists and is an array
+        if (meeting.raw_data.tags && Array.isArray(meeting.raw_data.tags)) {
+          tags = meeting.raw_data.tags;
+        }
+        
+        // Check if contact_id exists
+        if (meeting.raw_data.contact_id && typeof meeting.raw_data.contact_id === 'string') {
+          contactId = meeting.raw_data.contact_id;
+        }
+        
+        // Check if follow_up_sent exists
+        if (meeting.raw_data.follow_up_sent === true) {
+          followUpSent = true;
+        }
+      }
       
       return {
         ...meeting,
@@ -88,14 +106,25 @@ export const sendFollowUp = async (meetingId: string, contactId: string | null):
     
     // Update the meeting record to mark follow-up as sent
     if (data?.success) {
+      // Fetch the current meeting data first to get the existing raw_data
+      const { data: meeting, error: fetchError } = await supabase
+        .from('meetings')
+        .select('raw_data')
+        .eq('id', meetingId)
+        .single();
+        
+      if (fetchError) throw fetchError;
+      
+      // Prepare the updated raw_data object
+      const updatedRawData = {
+        ...(meeting?.raw_data && typeof meeting.raw_data === 'object' ? meeting.raw_data : {}),
+        follow_up_sent: true
+      };
+      
+      // Update the meeting with the new raw_data
       await supabase
         .from('meetings')
-        .update({ 
-          raw_data: {
-            ...data.meeting?.raw_data,
-            follow_up_sent: true
-          }
-        })
+        .update({ raw_data: updatedRawData })
         .eq('id', meetingId);
     }
     
@@ -117,9 +146,15 @@ export const addTag = async (meetingId: string, tag: string): Promise<boolean> =
     
     if (fetchError) throw fetchError;
     
-    // Update the tags
-    const rawData = meeting?.raw_data || {};
-    const currentTags = rawData.tags || [];
+    // Initialize raw_data object if it doesn't exist or isn't an object
+    const rawData = (meeting?.raw_data && typeof meeting.raw_data === 'object') 
+      ? meeting.raw_data 
+      : {};
+    
+    // Initialize tags array if it doesn't exist or isn't an array
+    const currentTags = (rawData.tags && Array.isArray(rawData.tags)) 
+      ? rawData.tags 
+      : [];
     
     if (!currentTags.includes(tag)) {
       const updatedTags = [...currentTags, tag];
@@ -143,4 +178,3 @@ export const addTag = async (meetingId: string, tag: string): Promise<boolean> =
     return false;
   }
 };
-
