@@ -21,42 +21,83 @@ serve(async (req) => {
   }
 
   try {
-    const { action, url, webhookUrl } = await req.json();
+    const { action, url, fileContent, fileName, webhookUrl } = await req.json();
 
     if (action === 'uploadAudio') {
-      if (!url) {
-        throw new Error('Missing required url parameter');
-      }
-
       const token = await getSymblToken();
       
-      const response = await fetch("https://api.symbl.ai/v1/process/audio/url", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          url,
-          webhookUrl: webhookUrl || `${req.url.split('/symbl-client')[0]}/meeting-webhook`,
-          name: "Jarvis Meeting Recording",
-        }),
-      });
+      if (url) {
+        // Process URL upload
+        console.log("Processing URL upload:", url);
+        
+        const response = await fetch("https://api.symbl.ai/v1/process/audio/url", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            url,
+            webhookUrl: webhookUrl || `${req.url.split('/symbl-client')[0]}/meeting-webhook`,
+            name: "Jarvis Meeting Recording",
+          }),
+        });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Symbl API error response:", errorText);
-        throw new Error(`Symbl API error: ${errorText}`);
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("Symbl API error response for URL upload:", errorText);
+          throw new Error(`Symbl API error: ${errorText}`);
+        }
+
+        const result = await response.json();
+        
+        console.log("Symbl audio URL upload successful:", result);
+        
+        return new Response(
+          JSON.stringify(result),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } else if (fileContent && fileName) {
+        // Process file upload
+        console.log("Processing file upload:", fileName);
+        
+        // Decode base64 file content
+        const binaryData = Uint8Array.from(atob(fileContent), c => c.charCodeAt(0));
+        
+        // Create a blob with the binary data
+        const file = new Blob([binaryData]);
+        
+        // Create form data
+        const formData = new FormData();
+        formData.append('name', fileName);
+        formData.append('file', file, fileName);
+        formData.append('webhookUrl', webhookUrl || `${req.url.split('/symbl-client')[0]}/meeting-webhook`);
+        
+        const response = await fetch("https://api.symbl.ai/v1/process/audio", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+          },
+          body: formData,
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error("Symbl API error response for file upload:", errorText);
+          throw new Error(`Symbl API error: ${errorText}`);
+        }
+        
+        const result = await response.json();
+        
+        console.log("Symbl file upload successful:", result);
+        
+        return new Response(
+          JSON.stringify(result),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } else {
+        throw new Error("Missing required parameters. Either 'url' or both 'fileContent' and 'fileName' must be provided");
       }
-
-      const result = await response.json();
-      
-      console.log("Symbl audio upload successful:", result);
-      
-      return new Response(
-        JSON.stringify(result),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
     } else if (action === 'getCredentials') {
       // For securely checking if credentials are set
       const supabase = createClient(supabaseUrl, supabaseServiceKey);

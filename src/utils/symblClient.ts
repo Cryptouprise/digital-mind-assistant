@@ -12,12 +12,16 @@ export interface Meeting {
   raw_data?: any;
 }
 
-export const uploadMeetingAudio = async (audioUrl: string) => {
+export type UploadParams = 
+  | { url: string } 
+  | { fileContent: string; fileName: string };
+
+export const uploadMeetingAudio = async (params: UploadParams) => {
   try {
     const { data, error } = await supabase.functions.invoke('symbl-client', {
       body: {
         action: 'uploadAudio',
-        url: audioUrl
+        ...params
       }
     });
     
