@@ -21,7 +21,10 @@ serve(async (req) => {
   }
 
   try {
-    const { action, url, fileContent, fileName, webhookUrl } = await req.json();
+    const { action, url, fileContent, fileName, webhookUrl, meetingId } = await req.json();
+
+    // Create Supabase client for database operations
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     if (action === 'uploadAudio') {
       const token = await getSymblToken();
@@ -100,7 +103,6 @@ serve(async (req) => {
       }
     } else if (action === 'getCredentials') {
       // For securely checking if credentials are set
-      const supabase = createClient(supabaseUrl, supabaseServiceKey);
       
       // Get stored credentials from settings table
       const { data: appIdData, error: appIdError } = await supabase
@@ -165,6 +167,64 @@ serve(async (req) => {
           credentialsSet: isVerified,
           hasCredentials: !!(appId && appSecret)
         }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } else if (action === 'getMeetingData') {
+      if (!meetingId) {
+        throw new Error("Missing required parameter: meetingId");
+      }
+      
+      // Fetch meeting data from the database
+      const { data: meeting, error } = await supabase
+        .from('meetings')
+        .select('*')
+        .eq('id', meetingId)
+        .single();
+      
+      if (error) {
+        throw new Error(`Error fetching meeting data: ${error.message}`);
+      }
+      
+      if (!meeting) {
+        throw new Error(`Meeting not found with ID: ${meetingId}`);
+      }
+      
+      // If the meeting has a symbl_conversation_id and is not completed yet, fetch the latest data from Symbl API
+      if (meeting.symbl_conversation_id && meeting.status !== 'completed') {
+        try {
+          const token = await getSymblToken();
+          
+          const conversationResponse = await fetch(
+            `https://api.symbl.ai/v1/conversations/${meeting.symbl_conversation_id}`, 
+            {
+              headers: {
+                "Authorization": `Bearer ${token}`,
+              }
+            }
+          );
+          
+          if (conversationResponse.ok) {
+            const conversationData = await conversationResponse.json();
+            
+            // Check if conversation is completed
+            if (conversationData.status === 'completed') {
+              // Update the meeting status
+              await supabase
+                .from('meetings')
+                .update({ status: 'completed' })
+                .eq('id', meetingId);
+              
+              meeting.status = 'completed';
+            }
+          }
+        } catch (error) {
+          console.error("Error updating meeting status from Symbl:", error);
+          // Continue with existing meeting data even if update fails
+        }
+      }
+      
+      return new Response(
+        JSON.stringify(meeting),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } else {

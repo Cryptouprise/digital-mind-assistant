@@ -15,13 +15,114 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { action, contactId, tagId, workflowId, fields, opportunityId, stageId, appointmentId } = body;
+    const { action, contactId, tagId, workflowId, fields, opportunityId, stageId, appointmentId, meetingId, automation } = body;
     
     if (!action) {
       throw new Error('Missing required parameter: action');
     }
     
-    // Call the ghl-client edge function with the appropriate parameters
+    // For Admin Jarvis Mode - Automated Actions
+    if (automation && action === 'auto_process') {
+      console.log("Running automated Jarvis actions for meeting:", meetingId);
+      
+      // Call symbl-client edge function to get meeting data
+      const meetingResponse = await fetch(
+        `${req.url.split('/jarvis-actions')[0]}/symbl-client`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': req.headers.get('Authorization') || '',
+            'x-client-info': req.headers.get('x-client-info') || '',
+          },
+          body: JSON.stringify({
+            action: 'getMeetingData',
+            meetingId
+          })
+        }
+      );
+      
+      if (!meetingResponse.ok) {
+        throw new Error(`Failed to fetch meeting data: ${await meetingResponse.text()}`);
+      }
+      
+      const meetingData = await meetingResponse.json();
+      
+      // Run automated actions based on meeting content
+      const automatedActions = [];
+      
+      // Extract contact ID if available
+      const contactId = meetingData.raw_data?.contact_id;
+      if (!contactId) {
+        throw new Error("No contact ID associated with this meeting");
+      }
+      
+      // Example: Detect meeting topics and add appropriate tags
+      const insights = meetingData.raw_data?.insights?.insights || [];
+      const summary = meetingData.summary || '';
+      
+      // Detect topics and add tags
+      const possibleTopics = [
+        { keyword: "pricing", tagId: "12345", action: "add_tag" },
+        { keyword: "demo", tagId: "12346", action: "add_tag" },
+        { keyword: "support", tagId: "12347", action: "add_tag" },
+        { keyword: "interested", workflowId: "567890", action: "launch_workflow" },
+      ];
+      
+      const textToAnalyze = summary.toLowerCase() + ' ' + insights.map(i => i.text || '').join(' ').toLowerCase();
+      
+      for (const topic of possibleTopics) {
+        if (textToAnalyze.includes(topic.keyword)) {
+          if (topic.action === "add_tag" && topic.tagId) {
+            // Call GHL client to add the tag
+            automatedActions.push({
+              action: "add_tag",
+              params: { contactId, tagId: topic.tagId }
+            });
+          } else if (topic.action === "launch_workflow" && topic.workflowId) {
+            // Call GHL client to launch workflow
+            automatedActions.push({
+              action: "launch_workflow",
+              params: { contactId, workflowId: topic.workflowId }
+            });
+          }
+        }
+      }
+      
+      // Execute all automated actions
+      const results = await Promise.all(
+        automatedActions.map(autoAction => 
+          fetch(
+            `${req.url.split('/jarvis-actions')[0]}/ghl-client`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': req.headers.get('Authorization') || '',
+                'x-client-info': req.headers.get('x-client-info') || '',
+              },
+              body: JSON.stringify({
+                action: autoAction.action,
+                params: autoAction.params
+              })
+            }
+          ).then(res => res.json())
+        )
+      );
+      
+      return new Response(
+        JSON.stringify({ 
+          success: true,
+          automatedActions: automatedActions.length,
+          results
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+    
+    // Call the ghl-client edge function with the appropriate parameters for regular actions
     const ghlResponse = await fetch(
       `${req.url.split('/jarvis-actions')[0]}/ghl-client`,
       {

@@ -78,6 +78,43 @@ serve(async (req) => {
         });
         break;
         
+      case 'sendFollowUp':
+        const { meetingId, contactId: followUpContactId, meetingSummary } = params;
+        
+        // Get contact information
+        const contactResponse = await fetch(`${GHL_API_BASE}/contacts/${followUpContactId}`, {
+          method: 'GET',
+          headers
+        });
+        
+        if (!contactResponse.ok) {
+          throw new Error(`Failed to fetch contact: ${await contactResponse.text()}`);
+        }
+        
+        const contactData = await contactResponse.json();
+        
+        // Send a follow-up message
+        const messageResponse = await fetch(`${GHL_API_BASE}/contacts/${followUpContactId}/sms`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            message: `Hi ${contactData.contact.firstName || 'there'},\n\nThank you for our meeting. Here's a quick summary: ${meetingSummary || 'We discussed your needs and next steps.'}\n\nLet me know if you have any questions.\n\nBest regards,\nYour Team`,
+            direction: "outgoing",
+          })
+        });
+        
+        // Also update contact notes with meeting details
+        const noteResponse = await fetch(`${GHL_API_BASE}/contacts/${followUpContactId}/notes`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            note: `Meeting follow-up sent on ${new Date().toLocaleDateString()}. Meeting ID: ${meetingId}\n\n${meetingSummary || 'No meeting summary available.'}`
+          })
+        });
+        
+        result = messageResponse;
+        break;
+        
       default:
         throw new Error(`Unsupported GHL action: ${action}`);
     }
