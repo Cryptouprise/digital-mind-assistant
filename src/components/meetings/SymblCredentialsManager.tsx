@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { KeyRound, CheckCircle, AlertCircle } from "lucide-react";
+import { KeyRound, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,16 +18,20 @@ const SymblCredentialsManager = ({ credentialsSet, onCredentialsUpdate }: SymblC
   const [credentialsDialogOpen, setCredentialsDialogOpen] = useState(false);
   const [symblAppId, setSymblAppId] = useState("");
   const [symblAppSecret, setSymblAppSecret] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
 
   const handleCredentialsSave = async () => {
     try {
+      setIsSaving(true);
+      
       if (!symblAppId || !symblAppSecret) {
         toast({
           title: "Error",
           description: "Both App ID and App Secret are required",
           variant: "destructive",
         });
+        setIsSaving(false);
         return;
       }
 
@@ -43,17 +47,38 @@ const SymblCredentialsManager = ({ credentialsSet, onCredentialsUpdate }: SymblC
 
       if (error) throw new Error(error.message);
       
-      toast({
-        title: "Success",
-        description: "Symbl credentials saved successfully",
-      });
-      
-      // Important: Check credentials again after saving
-      const areSet = await checkSymblCredentials();
-      onCredentialsUpdate(areSet);
-      setCredentialsDialogOpen(false);
-      setSymblAppId("");
-      setSymblAppSecret("");
+      // Important: Wait a moment (allows secrets to propagate) then check credentials again
+      setTimeout(async () => {
+        try {
+          // Verify the credentials were actually set
+          const areSet = await checkSymblCredentials();
+          
+          toast({
+            title: areSet ? "Success" : "Warning",
+            description: areSet 
+              ? "Symbl credentials saved successfully" 
+              : "Credentials were saved but verification failed. Please try again.",
+            variant: areSet ? "default" : "destructive",
+          });
+          
+          onCredentialsUpdate(areSet);
+          
+          if (areSet) {
+            setCredentialsDialogOpen(false);
+            setSymblAppId("");
+            setSymblAppSecret("");
+          }
+        } catch (verifyError) {
+          console.error("Error verifying credentials:", verifyError);
+          toast({
+            title: "Verification Error",
+            description: "Could not verify if credentials were set properly",
+            variant: "destructive",
+          });
+        } finally {
+          setIsSaving(false);
+        }
+      }, 2000);
     } catch (error) {
       console.error("Error saving credentials:", error);
       toast({
@@ -61,6 +86,7 @@ const SymblCredentialsManager = ({ credentialsSet, onCredentialsUpdate }: SymblC
         description: error instanceof Error ? error.message : "Failed to save credentials",
         variant: "destructive",
       });
+      setIsSaving(false);
     }
   };
 
@@ -131,10 +157,19 @@ const SymblCredentialsManager = ({ credentialsSet, onCredentialsUpdate }: SymblC
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCredentialsDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setCredentialsDialogOpen(false)} disabled={isSaving}>
               Cancel
             </Button>
-            <Button onClick={handleCredentialsSave}>Save Credentials</Button>
+            <Button onClick={handleCredentialsSave} disabled={isSaving}>
+              {isSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Credentials"
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
