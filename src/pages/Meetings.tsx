@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, CalendarCheck, Upload, RefreshCcw, KeyRound, CheckCircle, AlertCircle } from "lucide-react";
@@ -114,7 +115,9 @@ const Meetings = () => {
         description: "Symbl credentials saved successfully",
       });
       
-      setCredentialsSet(true);
+      // Important: Check credentials again after saving
+      const areSet = await checkSymblCredentials();
+      setCredentialsSet(areSet);
       setCredentialsDialogOpen(false);
       setSymblAppId("");
       setSymblAppSecret("");
