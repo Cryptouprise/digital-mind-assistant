@@ -16,19 +16,14 @@ const ChatBot = () => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(false);
-  const [recordingTime, setRecordingTime] = useState(0);
   const [interimTranscript, setInterimTranscript] = useState("");
-  const [isProcessing, setIsProcessing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isMobile = useBreakpoint(768);
   
-  // Media recorder for voice input
-  const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
-  const audioChunks = useRef<Blob[]>([]);
-  const recordingInterval = useRef<number | null>(null);
-  const interimChunks = useRef<Blob[]>([]);
-  const interimTimer = useRef<number | null>(null);
+  // Speech recognition setup
+  const recognitionRef = useRef<any>(null);
+  const isRecognitionSupported = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -44,37 +39,81 @@ const ChatBot = () => {
       toast.error("Failed to play audio");
     };
 
+    // Initialize speech recognition if supported
+    if (isRecognitionSupported) {
+      const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = true;
+      recognitionRef.current.interimResults = true;
+      recognitionRef.current.lang = 'en-US';
+
+      recognitionRef.current.onresult = (event: any) => {
+        let interimText = '';
+        let finalText = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const transcript = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalText += transcript + ' ';
+          } else {
+            interimText += transcript;
+          }
+        }
+
+        // Update the interim transcript
+        setInterimTranscript(interimText);
+
+        // If we have final text, process it
+        if (finalText) {
+          processVoiceInput(finalText.trim());
+        }
+      };
+
+      recognitionRef.current.onerror = (event: any) => {
+        console.error('Speech recognition error:', event.error);
+        if (event.error === 'network') {
+          toast.error("Network error. Please check your connection.");
+        }
+        setIsListening(false);
+      };
+
+      recognitionRef.current.onend = () => {
+        // Only restart if we're still supposed to be listening
+        if (isListening) {
+          try {
+            recognitionRef.current.start();
+          } catch (e) {
+            console.log('Error restarting speech recognition:', e);
+          }
+        }
+      };
+    }
+
     return () => {
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
       }
       
-      // Clean up intervals on unmount
-      if (recordingInterval.current) {
-        window.clearInterval(recordingInterval.current);
-      }
-      if (interimTimer.current) {
-        window.clearInterval(interimTimer.current);
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
       }
     };
   }, []);
 
-  // Reset recording time when listening state changes
+  // Update recognition state when listening changes
   useEffect(() => {
-    if (isListening) {
-      setRecordingTime(0);
-      recordingInterval.current = window.setInterval(() => {
-        setRecordingTime(prev => prev + 1);
-      }, 1000);
-    } else {
-      if (recordingInterval.current) {
-        window.clearInterval(recordingInterval.current);
-        recordingInterval.current = null;
+    if (isListening && recognitionRef.current) {
+      try {
+        recognitionRef.current.start();
+      } catch (e) {
+        console.log('Error starting speech recognition:', e);
       }
-      if (interimTimer.current) {
-        window.clearInterval(interimTimer.current);
-        interimTimer.current = null;
+    } else if (!isListening && recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {
+        console.log('Error stopping speech recognition:', e);
       }
     }
   }, [isListening]);
@@ -182,151 +221,72 @@ const ChatBot = () => {
   };
 
   const startListening = async () => {
-    try {
-      // Clear any previous transcript
-      setInterimTranscript("");
-      
-      // Request microphone permission
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      toast.success("Listening... Speak now");
-
-      // Create a new MediaRecorder instance
-      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-      setMediaRecorder(recorder);
-      audioChunks.current = [];
-      interimChunks.current = [];
-
-      // Event handlers for the recorder
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) {
-          audioChunks.current.push(e.data);
-          interimChunks.current.push(e.data);
-        }
-      };
-
-      recorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunks.current, { type: 'audio/webm' });
-        await processVoiceInput(audioBlob);
-        audioChunks.current = [];
-        interimChunks.current = [];
-      };
-
-      // Start recording
-      recorder.start(1000); // Collect data every second for interim results
-      setIsListening(true);
-      
-      // Setup more frequent interim transcript processing (every 1.5 seconds)
-      interimTimer.current = window.setInterval(async () => {
-        if (interimChunks.current.length > 0 && isListening) {
-          const interimBlob = new Blob(interimChunks.current, { type: 'audio/webm' });
-          await processInterimTranscript(interimBlob);
-          interimChunks.current = []; // Clear interim chunks after processing
-        }
-      }, 1500); // Process interim results every 1.5 seconds
-      
-    } catch (error) {
-      console.error('Error accessing microphone:', error);
-      toast.error("Failed to access microphone. Please check your permissions.");
+    if (!isRecognitionSupported) {
+      toast.error("Speech recognition is not supported in your browser.");
+      return;
     }
+
+    setIsListening(true);
+    setInterimTranscript("");
+    toast.success("Listening... Speak now");
   };
 
   const stopListening = () => {
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-      mediaRecorder.stop();
-      setIsListening(false);
-      toast.info("Processing your voice input...");
-
-      // Stop all tracks to release microphone
-      mediaRecorder.stream.getTracks().forEach(track => track.stop());
-      
-      // Clear intervals
-      if (interimTimer.current) {
-        window.clearInterval(interimTimer.current);
-        interimTimer.current = null;
-      }
+    setIsListening(false);
+    toast.info("Stopped listening.");
+    if (interimTranscript.trim()) {
+      processVoiceInput(interimTranscript.trim());
     }
+    setInterimTranscript("");
   };
 
-  const processInterimTranscript = async (audioBlob: Blob) => {
+  const processVoiceInput = async (text: string) => {
+    if (!text) return;
+    
+    setInput(text);
+    
+    // Add user message with transcribed text
+    const userMessage = { sender: "user", text: text };
+    setMessages((prev) => [...prev, userMessage]);
+    setIsLoading(true);
+
     try {
-      setIsProcessing(true);
-      const transcribedText = await processAudioToText(audioBlob, true);
-      
-      if (transcribedText) {
-        setInterimTranscript(prev => {
-          // Append new text, ensuring there's a space between them
-          const newText = prev ? `${prev} ${transcribedText}` : transcribedText;
-          // Limit the length to avoid overwhelming the UI
-          return newText.length > 500 ? newText.slice(-500) : newText;
-        });
-      }
-      setIsProcessing(false);
-    } catch (error) {
-      console.log('Error processing interim audio:', error);
-      setIsProcessing(false);
-    }
-  };
+      const { data: chatData, error: chatError } = await supabase.functions.invoke('chat', {
+        body: { message: text }
+      });
 
-  const processVoiceInput = async (audioBlob: Blob) => {
-    try {
-      setIsLoading(true);
-      
-      const transcribedText = await processAudioToText(audioBlob);
-      
-      if (transcribedText) {
-        setInput(transcribedText);
-        
-        // Add user message with transcribed text
-        const userMessage = { sender: "user", text: transcribedText };
-        setMessages((prev) => [...prev, userMessage]);
-
-        // Now send the message to the chat function
-        try {
-          const { data: chatData, error: chatError } = await supabase.functions.invoke('chat', {
-            body: { message: transcribedText }
-          });
-
-          if (chatError) {
-            console.error('Error calling chat function:', chatError);
-            toast.error("Failed to get a response. Please try again.");
-            const errorMessage = { 
-              sender: "jarvis", 
-              text: "Sorry, I encountered an error processing your request. Please try again." 
-            };
-            setMessages((prev) => [...prev, errorMessage]);
-          } else {
-            // Add bot response
-            const botResponse = chatData.response;
-            const botMessage = { sender: "jarvis", text: botResponse };
-            setMessages((prev) => [...prev, botMessage]);
-            
-            // If audio is enabled, convert the text to speech
-            if (audioEnabled) {
-              await speakText(botResponse);
-            }
-          }
-        } catch (chatErr) {
-          console.error('Error in chat:', chatErr);
-          toast.error("An unexpected error occurred. Please try again.");
-          const errorMessage = { 
-            sender: "jarvis", 
-            text: "Sorry, I encountered an unexpected error. Please try again." 
-          };
-          setMessages((prev) => [...prev, errorMessage]);
-        }
+      if (chatError) {
+        console.error('Error calling chat function:', chatError);
+        toast.error("Failed to get a response. Please try again.");
+        const errorMessage = { 
+          sender: "jarvis", 
+          text: "Sorry, I encountered an error processing your request. Please try again." 
+        };
+        setMessages((prev) => [...prev, errorMessage]);
       } else {
-        toast.error("Could not understand audio. Please try again.");
+        // Add bot response
+        const botResponse = chatData.response;
+        const botMessage = { sender: "jarvis", text: botResponse };
+        setMessages((prev) => [...prev, botMessage]);
+        
+        // If audio is enabled, convert the text to speech
+        if (audioEnabled) {
+          await speakText(botResponse);
+        }
       }
-      
-      setIsLoading(false);
-      setInput("");
-      setInterimTranscript("");
-    } catch (error) {
-      console.error('Error processing audio input:', error);
-      toast.error("Failed to process audio. Please try again.");
-      setIsLoading(false);
-      setInterimTranscript("");
+    } catch (chatErr) {
+      console.error('Error in chat:', chatErr);
+      toast.error("An unexpected error occurred. Please try again.");
+      const errorMessage = { 
+        sender: "jarvis", 
+        text: "Sorry, I encountered an unexpected error. Please try again." 
+      };
+      setMessages((prev) => [...prev, errorMessage]);
     }
+    
+    setIsLoading(false);
+    setInput("");
+    setInterimTranscript("");
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -368,26 +328,20 @@ const ChatBot = () => {
         </div>
       </div>
       
-      {/* Voice recording indicator with live transcription */}
+      {/* Voice input indicator with live transcription */}
       {isListening && (
         <div className="mb-3 p-3 bg-red-900/20 border border-red-500/30 rounded-md">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <Activity className="h-4 w-4 text-red-400 animate-pulse" />
-              <span className="text-sm font-medium text-white">Recording voice...</span>
+              <span className="text-sm font-medium text-white">Listening...</span>
             </div>
-            <span className="text-sm font-mono text-red-300">{formatTime(recordingTime)}</span>
           </div>
           
           {/* Live transcription display */}
-          <div className="bg-slate-900/50 p-2 rounded border border-slate-700/50 mt-1 relative">
-            {isProcessing && (
-              <div className="absolute right-2 top-2">
-                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-              </div>
-            )}
+          <div className="bg-slate-900/50 p-2 rounded border border-slate-700/50 mt-1">
             <p className="text-base leading-relaxed text-white font-medium min-h-[2.5rem]">
-              {interimTranscript || <span className="text-slate-400 italic">Listening...</span>}
+              {interimTranscript || <span className="text-slate-400 italic">Speak now...</span>}
             </p>
           </div>
         </div>
@@ -440,7 +394,7 @@ const ChatBot = () => {
             <Button
               variant={isListening ? "destructive" : "outline"}
               onClick={isListening ? stopListening : startListening}
-              disabled={isLoading}
+              disabled={isLoading || !isRecognitionSupported}
               className={`hidden sm:flex items-center gap-1 ${isListening ? "animate-pulse" : ""}`}
             >
               {isListening ? "Stop" : "Voice Input"}
@@ -449,7 +403,7 @@ const ChatBot = () => {
           )}
           <Button 
             onClick={sendMessage} 
-            disabled={isLoading || isListening || !input.trim()}
+            disabled={isLoading || !input.trim()}
             className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
           >
             Send

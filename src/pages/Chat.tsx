@@ -14,6 +14,9 @@ const Chat = () => {
             <span className="bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent">
               Jarvis Assistant
             </span>
+            <span className="ml-2 text-sm font-normal bg-green-600/20 text-green-400 px-2 py-0.5 rounded-full">
+              Voice Enabled
+            </span>
           </h1>
           <ChatBot />
         </div>
