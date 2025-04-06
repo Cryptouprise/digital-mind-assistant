@@ -10,11 +10,18 @@ interface ZoomMtgParams {
 }
 
 interface ZoomMtg {
-  init: () => void;
+  init: (params?: any) => void;
   join: (params: ZoomMtgParams) => boolean;
   mute?: (params: { mute: boolean }) => void;
   videoOff?: (params: { videoOff: boolean }) => void;
   leaveMeeting?: (params: any) => void;
+  // Adding additional methods for future use
+  getClientVersion?: () => string;
+  checkSystemRequirements?: () => {
+    os: boolean;
+    browser: boolean;
+    webRTC: boolean;
+  };
 }
 
 declare global {
@@ -22,3 +29,5 @@ declare global {
     ZoomMtg?: ZoomMtg;
   }
 }
+
+export {};

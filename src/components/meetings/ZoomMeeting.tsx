@@ -62,7 +62,9 @@ const ZoomMeeting: React.FC<ZoomMeetingProps> = ({
         }
         
         // Initialize Zoom SDK
-        window.ZoomMtg.init();
+        if (window.ZoomMtg) {
+          window.ZoomMtg.init();
+        }
         
         // Connect to Symbl.ai
         connectToSymbl();
@@ -170,7 +172,7 @@ const ZoomMeeting: React.FC<ZoomMeetingProps> = ({
   const toggleMute = () => {
     setIsMuted(!isMuted);
     // In a real implementation, you would call the Zoom SDK:
-    // window.ZoomMtg.mute({ mute: !isMuted });
+    // window.ZoomMtg?.mute({ mute: !isMuted });
     
     toast({
       title: isMuted ? "Microphone Unmuted" : "Microphone Muted",
@@ -181,7 +183,7 @@ const ZoomMeeting: React.FC<ZoomMeetingProps> = ({
   const toggleVideo = () => {
     setIsVideoOff(!isVideoOff);
     // In a real implementation, you would call the Zoom SDK:
-    // window.ZoomMtg.videoOff({ videoOff: !isVideoOff });
+    // window.ZoomMtg?.videoOff({ videoOff: !isVideoOff });
     
     toast({
       title: isVideoOff ? "Video Turned On" : "Video Turned Off",
@@ -197,7 +199,7 @@ const ZoomMeeting: React.FC<ZoomMeetingProps> = ({
       }
       
       // In a real implementation, you would leave the Zoom meeting:
-      // window.ZoomMtg.leaveMeeting({});
+      // window.ZoomMtg?.leaveMeeting({});
       
       toast({
         title: "Meeting Ended",
