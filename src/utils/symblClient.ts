@@ -1,13 +1,15 @@
 
 import { supabase } from "@/integrations/supabase/client";
+import { Database } from "@/integrations/supabase/types";
 
 export interface Meeting {
   id: string;
   title: string;
   date: string;
-  summary: string;
-  status?: string;
-  symbl_conversation_id?: string;
+  summary: string | null;
+  status?: string | null;
+  symbl_conversation_id?: string | null;
+  raw_data?: any;
 }
 
 export const uploadMeetingAudio = async (audioUrl: string) => {

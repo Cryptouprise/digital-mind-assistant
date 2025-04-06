@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, CalendarCheck, Upload, RefreshCcw } from "lucide-react";
 import Navigation from "@/components/Navigation";
@@ -134,7 +134,7 @@ const Meetings = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {meetings.map((meeting: Meeting) => (
+                  {meetings.map((meeting) => (
                     <TableRow key={meeting.id} className="hover:bg-slate-700">
                       <TableCell className="font-medium">{meeting.title}</TableCell>
                       <TableCell>{new Date(meeting.date).toLocaleDateString()}</TableCell>
@@ -154,7 +154,7 @@ const Meetings = () => {
         </Card>
 
         <div className="grid gap-6 mt-6">
-          {meetings.map((meeting: Meeting) => (
+          {meetings.map((meeting) => (
             <Card key={meeting.id} className="bg-slate-800 border-slate-700 text-white">
               <CardHeader className="pb-2">
                 <CardTitle className="text-xl font-semibold">{meeting.title}</CardTitle>
