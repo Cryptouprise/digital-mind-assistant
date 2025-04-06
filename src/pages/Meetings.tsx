@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, CalendarCheck, Upload } from "lucide-react";
@@ -98,8 +97,8 @@ const Meetings = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-gray-800 text-white">
-      <Navigation darkTheme={true} />
+    <div className="min-h-screen bg-slate-900 text-white">
+      <Navigation />
       
       <main className="p-6 max-w-5xl mx-auto">
         <div className="mb-6 flex justify-between items-center">
