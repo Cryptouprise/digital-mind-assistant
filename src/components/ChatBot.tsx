@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,10 +7,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Volume2, VolumeX, Mic, MicOff, Activity } from "lucide-react";
 import { useBreakpoint } from "@/hooks/use-mobile";
-import { processAudioToText, formatTime } from "@/utils/speechUtils";
 
 type SpeechRecognitionInstance = SpeechRecognition & {
-  // Add any additional properties used in your code
+  // Additional properties specific to our implementation
 };
 
 const ChatBot = () => {
@@ -18,11 +18,13 @@ const ChatBot = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const [audioEnabled, setAudioEnabled] = useState(false);
+  const [audioEnabled, setAudioEnabled] = useState(true); // Default to enabled
   const [interimTranscript, setInterimTranscript] = useState("");
+  const [voiceProcessing, setVoiceProcessing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isMobile = useBreakpoint(768);
+  const speechTimeoutRef = useRef<number | null>(null);
   
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const isRecognitionSupported = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
@@ -39,6 +41,25 @@ const ChatBot = () => {
       toast.error("Failed to play audio");
     };
 
+    initSpeechRecognition();
+
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+
+      if (speechTimeoutRef.current) {
+        window.clearTimeout(speechTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const initSpeechRecognition = () => {
     if (isRecognitionSupported) {
       const SpeechRecognitionClass = window.webkitSpeechRecognition || window.SpeechRecognition;
       recognitionRef.current = new SpeechRecognitionClass() as SpeechRecognitionInstance;
@@ -46,7 +67,7 @@ const ChatBot = () => {
       recognitionRef.current.interimResults = true;
       recognitionRef.current.lang = 'en-US';
 
-      recognitionRef.current.onresult = (event: any) => {
+      recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
         let interimText = '';
         let finalText = '';
 
@@ -61,8 +82,26 @@ const ChatBot = () => {
 
         setInterimTranscript(interimText);
 
+        // Reset the speech timeout to detect pauses
+        if (speechTimeoutRef.current) {
+          window.clearTimeout(speechTimeoutRef.current);
+        }
+
+        if (interimText) {
+          speechTimeoutRef.current = window.setTimeout(() => {
+            if (interimText.trim()) {
+              processVoiceInput(interimText.trim());
+              setInterimTranscript("");
+            }
+          }, 1500); // Wait for 1.5 seconds of silence before processing
+        }
+
         if (finalText) {
+          if (speechTimeoutRef.current) {
+            window.clearTimeout(speechTimeoutRef.current);
+          }
           processVoiceInput(finalText.trim());
+          setInterimTranscript("");
         }
       };
 
@@ -71,44 +110,48 @@ const ChatBot = () => {
         if (event.error === 'network') {
           toast.error("Network error. Please check your connection.");
         }
-        setIsListening(false);
+        
+        // Don't stop listening - just notify the error
+        if (event.error === 'no-speech') {
+          console.log('No speech detected');
+        } else {
+          toast.error(`Speech recognition error: ${event.error}`);
+        }
       };
 
       recognitionRef.current.onend = () => {
+        console.log('Speech recognition service ended');
+        // Auto restart if it's supposed to be listening
         if (isListening) {
           try {
-            recognitionRef.current.start();
+            recognitionRef.current?.start();
+            console.log('Restarted speech recognition');
           } catch (e) {
-            console.log('Error restarting speech recognition:', e);
+            console.error('Error restarting speech recognition:', e);
+            setIsListening(false);
+            toast.error("Failed to restart listening. Please try again.");
           }
         }
       };
     }
-
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-      
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
-    };
-  }, []);
+  };
 
   useEffect(() => {
     if (isListening && recognitionRef.current) {
       try {
         recognitionRef.current.start();
+        console.log('Started speech recognition');
       } catch (e) {
-        console.log('Error starting speech recognition:', e);
+        console.error('Error starting speech recognition:', e);
+        toast.error("Failed to start listening. Please try again.");
+        setIsListening(false);
       }
     } else if (!isListening && recognitionRef.current) {
       try {
         recognitionRef.current.stop();
+        console.log('Stopped speech recognition');
       } catch (e) {
-        console.log('Error stopping speech recognition:', e);
+        console.error('Error stopping speech recognition:', e);
       }
     }
   }, [isListening]);
@@ -180,17 +223,41 @@ const ChatBot = () => {
       if (audioRef.current) {
         const audioUrl = URL.createObjectURL(audioBlob);
         audioRef.current.src = audioUrl;
+        
+        // Temporarily pause speech recognition while playing audio
+        if (isListening && recognitionRef.current) {
+          recognitionRef.current.stop();
+        }
+        
         await audioRef.current.play();
         
         audioRef.current.onended = () => {
           URL.revokeObjectURL(audioUrl);
           setIsSpeaking(false);
+          
+          // Resume speech recognition after audio finishes
+          if (isListening && recognitionRef.current) {
+            try {
+              recognitionRef.current.start();
+            } catch (e) {
+              console.error('Error restarting speech recognition after audio:', e);
+            }
+          }
         };
       }
     } catch (error) {
       console.error('Error in text-to-speech:', error);
       setIsSpeaking(false);
       toast.error("Failed to play audio response");
+      
+      // Resume speech recognition if there was an error with TTS
+      if (isListening && recognitionRef.current) {
+        try {
+          recognitionRef.current.start();
+        } catch (e) {
+          console.error('Error restarting speech recognition after TTS error:', e);
+        }
+      }
     }
   };
 
@@ -220,6 +287,10 @@ const ChatBot = () => {
 
   const stopListening = () => {
     setIsListening(false);
+    if (speechTimeoutRef.current) {
+      window.clearTimeout(speechTimeoutRef.current);
+    }
+    
     toast.info("Stopped listening.");
     if (interimTranscript.trim()) {
       processVoiceInput(interimTranscript.trim());
@@ -228,8 +299,9 @@ const ChatBot = () => {
   };
 
   const processVoiceInput = async (text: string) => {
-    if (!text) return;
+    if (!text || voiceProcessing) return;
     
+    setVoiceProcessing(true);
     setInput(text);
     
     const userMessage = { sender: "user", text: text };
@@ -270,7 +342,7 @@ const ChatBot = () => {
     
     setIsLoading(false);
     setInput("");
-    setInterimTranscript("");
+    setVoiceProcessing(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -285,7 +357,7 @@ const ChatBot = () => {
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-xl font-bold flex items-center text-white">
           <span className="mr-2">Jarvis Assistant</span>
-          {isLoading && (
+          {(isLoading || voiceProcessing) && (
             <span className="inline-block w-4 h-4 border-2 border-t-transparent border-blue-600 rounded-full animate-spin"></span>
           )}
         </h2>
@@ -303,7 +375,7 @@ const ChatBot = () => {
             variant={isListening ? "destructive" : "outline"}
             size="icon"
             onClick={isListening ? stopListening : startListening}
-            disabled={isLoading}
+            disabled={isLoading || isSpeaking || voiceProcessing}
             title={isListening ? "Stop listening" : "Start voice input"}
             className={isListening ? "animate-pulse" : ""}
           >
@@ -313,11 +385,13 @@ const ChatBot = () => {
       </div>
       
       {isListening && (
-        <div className="mb-3 p-3 bg-red-900/20 border border-red-500/30 rounded-md">
+        <div className={`mb-3 p-3 ${interimTranscript ? "bg-green-900/20 border border-green-500/30" : "bg-red-900/20 border border-red-500/30"} rounded-md transition-colors duration-300`}>
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <Activity className="h-4 w-4 text-red-400 animate-pulse" />
-              <span className="text-sm font-medium text-white">Listening...</span>
+              <Activity className={`h-4 w-4 ${interimTranscript ? "text-green-400" : "text-red-400"} animate-pulse`} />
+              <span className="text-sm font-medium text-white">
+                {interimTranscript ? "Hearing you..." : "Listening..."}
+              </span>
             </div>
           </div>
           
@@ -333,7 +407,7 @@ const ChatBot = () => {
         <div className="space-y-3">
           {messages.length === 0 ? (
             <p className="text-center text-slate-400 p-4">
-              Send a message to start a conversation with Jarvis.
+              Send a message or speak to start a conversation with Jarvis.
             </p>
           ) : (
             messages.map((msg, idx) => (
@@ -368,7 +442,7 @@ const ChatBot = () => {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Ask Jarvis..."
-          disabled={isLoading || isListening}
+          disabled={isLoading || isListening || voiceProcessing}
           className="flex-1 bg-slate-700 text-white border-slate-600 placeholder:text-slate-400"
         />
         <div className="flex gap-2">
@@ -376,7 +450,7 @@ const ChatBot = () => {
             <Button
               variant={isListening ? "destructive" : "outline"}
               onClick={isListening ? stopListening : startListening}
-              disabled={isLoading || !isRecognitionSupported}
+              disabled={isLoading || !isRecognitionSupported || voiceProcessing || isSpeaking}
               className={`hidden sm:flex items-center gap-1 ${isListening ? "animate-pulse" : ""}`}
             >
               {isListening ? "Stop" : "Voice Input"}
@@ -385,7 +459,7 @@ const ChatBot = () => {
           )}
           <Button 
             onClick={sendMessage} 
-            disabled={isLoading || !input.trim()}
+            disabled={isLoading || !input.trim() || voiceProcessing}
             className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
           >
             Send
