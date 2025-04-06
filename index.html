@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -15,12 +16,25 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@lovable_dev" />
     <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    
+    <!-- Zoom Web SDK CSS -->
+    <link type="text/css" rel="stylesheet" href="https://source.zoom.us/2.18.0/css/bootstrap.css" />
+    <link type="text/css" rel="stylesheet" href="https://source.zoom.us/2.18.0/css/react-select.css" />
   </head>
 
   <body>
     <div id="root"></div>
     <!-- IMPORTANT: DO NOT REMOVE THIS SCRIPT TAG OR THIS VERY COMMENT! -->
     <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script>
+    
+    <!-- Zoom Web SDK JS -->
+    <script src="https://source.zoom.us/2.18.0/lib/vendor/react.min.js"></script>
+    <script src="https://source.zoom.us/2.18.0/lib/vendor/react-dom.min.js"></script>
+    <script src="https://source.zoom.us/2.18.0/lib/vendor/redux.min.js"></script>
+    <script src="https://source.zoom.us/2.18.0/lib/vendor/redux-thunk.min.js"></script>
+    <script src="https://source.zoom.us/2.18.0/lib/vendor/lodash.min.js"></script>
+    <script src="https://source.zoom.us/zoom-meeting-2.18.0.min.js"></script>
+    
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
