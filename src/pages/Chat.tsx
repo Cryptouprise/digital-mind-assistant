@@ -53,9 +53,9 @@ const Chat = () => {
   };
   
   return (
-    <div className="flex-1 bg-slate-900 text-white pb-4 pt-4 md:pt-6">
+    <div className="flex-1 bg-slate-900 text-white pb-4 pt-4 md:pt-6 px-4">
       <ScrollArea className="h-[calc(100vh-64px)] w-full">
-        <div className="container py-4 max-w-5xl mx-auto px-4 md:px-6">
+        <div className="container py-4 max-w-5xl mx-auto">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-2">
             <h1 className="text-2xl font-bold flex items-center">
               <span className="bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent">

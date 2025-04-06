@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ArrowLeft, CalendarCheck } from "lucide-react";
-import Navigation from "@/components/Navigation";
 import { useQuery } from "@tanstack/react-query";
 import { fetchMeetings } from "@/utils/symblClient";
 import { checkSymblCredentials } from "@/utils/checkSymblCredentials";
@@ -116,10 +115,8 @@ const Meetings = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-white">
-      <Navigation />
-      
-      <main className="p-4 md:p-6 max-w-5xl mx-auto h-full overflow-y-auto">
+    <div className="min-h-screen bg-slate-900 text-white pb-4 pt-14 px-4">
+      <main className="p-2 md:p-6 max-w-5xl mx-auto h-full overflow-y-auto">
         <div className={`mb-4 md:mb-6 ${isMobile ? 'flex flex-col gap-2' : 'flex justify-between items-center'}`}>
           <div className="flex items-center gap-2">
             <CalendarCheck className="h-5 w-5 md:h-6 md:w-6 text-blue-400" />

@@ -53,13 +53,13 @@ const Navigation = () => {
           )}
         </div>
         
-        {/* Mobile Menu Button */}
+        {/* Mobile Menu Button - Made more visible */}
         <div className="md:hidden">
           <Button
             onClick={toggleMobileMenu}
-            variant="ghost"
+            variant="outline"
             size="icon"
-            className="text-white hover:bg-slate-800"
+            className="text-white bg-blue-600 hover:bg-blue-700 border-blue-500"
           >
             {mobileMenuOpen ? (
               <X className="h-6 w-6" />
@@ -70,7 +70,7 @@ const Navigation = () => {
         </div>
       </div>
       
-      {/* Mobile Navigation Menu */}
+      {/* Mobile Navigation Menu - With improved visibility and overlay */}
       {mobileMenuOpen && (
         <>
           {/* Backdrop */}
