@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { KeyRound, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,20 +21,40 @@ const SymblCredentialsManager = ({ credentialsSet, onCredentialsUpdate }: SymblC
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
 
+  useEffect(() => {
+    // Listen for custom event to open credentials dialog
+    const handleOpenCredentials = () => {
+      setCredentialsDialogOpen(true);
+    };
+    
+    window.addEventListener('open-symbl-credentials', handleOpenCredentials);
+    
+    return () => {
+      window.removeEventListener('open-symbl-credentials', handleOpenCredentials);
+    };
+  }, []);
+
   const handleCredentialsSave = async () => {
+    if (!symblAppId || !symblAppSecret) {
+      toast({
+        title: "Error",
+        description: "Both App ID and App Secret are required",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setIsSaving(true);
       
-      if (!symblAppId || !symblAppSecret) {
-        toast({
-          title: "Error",
-          description: "Both App ID and App Secret are required",
-          variant: "destructive",
-        });
-        setIsSaving(false);
-        return;
-      }
-
+      // Clear any previous toasts
+      toast({
+        title: "Saving credentials",
+        description: "Please wait while we save your credentials..."
+      });
+      
+      console.log("Attempting to save Symbl credentials");
+      
       // Update the credentials in Supabase via our edge function
       const { data, error } = await supabase.functions.invoke('update-secret-keys', {
         body: {
@@ -53,32 +73,35 @@ const SymblCredentialsManager = ({ credentialsSet, onCredentialsUpdate }: SymblC
       console.log("Credentials saved response:", data);
       
       // Wait a bit longer to ensure credentials are properly stored
-      // and synced across all services
       toast({
-        title: "Saving credentials",
-        description: "Verifying credentials..."
+        title: "Verifying credentials",
+        description: "Checking if credentials are valid..."
       });
       
-      // Important: Wait a moment (allows credentials to be stored and verified)
+      // Wait a moment to allow credentials to be stored properly
       setTimeout(async () => {
         try {
           // Verify the credentials were actually set correctly
+          console.log("Verifying credentials...");
           const areSet = await checkSymblCredentials();
-          
-          toast({
-            title: areSet ? "Success" : "Warning",
-            description: areSet 
-              ? "Symbl credentials saved and verified successfully" 
-              : "Credentials were saved but verification failed. Please check your credentials and try again.",
-            variant: areSet ? "default" : "destructive",
-          });
-          
-          onCredentialsUpdate(areSet);
+          console.log("Credentials verification result:", areSet);
           
           if (areSet) {
+            toast({
+              title: "Success",
+              description: "Symbl credentials saved and verified successfully",
+            });
+            
+            onCredentialsUpdate(true);
             setCredentialsDialogOpen(false);
             setSymblAppId("");
             setSymblAppSecret("");
+          } else {
+            toast({
+              title: "Warning",
+              description: "Credentials were saved but verification failed. Please try again or check if credentials are correct.",
+              variant: "destructive",
+            });
           }
         } catch (verifyError) {
           console.error("Error verifying credentials:", verifyError);
@@ -181,7 +204,10 @@ const SymblCredentialsManager = ({ credentialsSet, onCredentialsUpdate }: SymblC
             <Button variant="outline" onClick={() => setCredentialsDialogOpen(false)} disabled={isSaving}>
               Cancel
             </Button>
-            <Button onClick={handleCredentialsSave} disabled={isSaving || !symblAppId || !symblAppSecret}>
+            <Button 
+              onClick={handleCredentialsSave} 
+              disabled={isSaving || !symblAppId || !symblAppSecret}
+            >
               {isSaving ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

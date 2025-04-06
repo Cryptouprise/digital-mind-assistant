@@ -3,10 +3,12 @@ import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import { BrainCircuit, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 const Navigation = () => {
   const location = useLocation();
   const isOnMeetingsPage = location.pathname === "/meetings";
+  const { toast } = useToast();
 
   return (
     <nav className="bg-slate-950 text-white p-4 shadow-md flex justify-between items-center">
@@ -27,11 +29,15 @@ const Navigation = () => {
             size="sm"
             className="ml-4 flex items-center gap-1"
             onClick={() => {
-              // Find the credentials dialog open button and click it
-              const credentialsBtn = document.querySelector('[data-credentials-button="true"]');
-              if (credentialsBtn instanceof HTMLButtonElement) {
-                credentialsBtn.click();
-              }
+              // Use custom event to trigger dialog opening
+              const event = new CustomEvent('open-symbl-credentials');
+              window.dispatchEvent(event);
+              
+              // Also provide feedback to user
+              toast({
+                title: "Opening credentials form",
+                description: "Enter your Symbl API credentials"
+              });
             }}
           >
             <KeyRound className="h-4 w-4" />
