@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +7,10 @@ import { toast } from "sonner";
 import { Volume2, VolumeX, Mic, MicOff, Activity } from "lucide-react";
 import { useBreakpoint } from "@/hooks/use-mobile";
 import { processAudioToText, formatTime } from "@/utils/speechUtils";
+
+type SpeechRecognitionInstance = SpeechRecognition & {
+  // Add any additional properties used in your code
+};
 
 const ChatBot = () => {
   const [messages, setMessages] = useState<Array<{ sender: string; text: string }>>([]);
@@ -21,16 +24,13 @@ const ChatBot = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isMobile = useBreakpoint(768);
   
-  // Speech recognition setup
-  const recognitionRef = useRef<any>(null);
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const isRecognitionSupported = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
 
-  // Auto-scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, interimTranscript]);
 
-  // Create audio element on mount
   useEffect(() => {
     audioRef.current = new Audio();
     audioRef.current.onended = () => setIsSpeaking(false);
@@ -39,10 +39,9 @@ const ChatBot = () => {
       toast.error("Failed to play audio");
     };
 
-    // Initialize speech recognition if supported
     if (isRecognitionSupported) {
-      const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
-      recognitionRef.current = new SpeechRecognition();
+      const SpeechRecognitionClass = window.webkitSpeechRecognition || window.SpeechRecognition;
+      recognitionRef.current = new SpeechRecognitionClass() as SpeechRecognitionInstance;
       recognitionRef.current.continuous = true;
       recognitionRef.current.interimResults = true;
       recognitionRef.current.lang = 'en-US';
@@ -60,10 +59,8 @@ const ChatBot = () => {
           }
         }
 
-        // Update the interim transcript
         setInterimTranscript(interimText);
 
-        // If we have final text, process it
         if (finalText) {
           processVoiceInput(finalText.trim());
         }
@@ -78,7 +75,6 @@ const ChatBot = () => {
       };
 
       recognitionRef.current.onend = () => {
-        // Only restart if we're still supposed to be listening
         if (isListening) {
           try {
             recognitionRef.current.start();
@@ -101,7 +97,6 @@ const ChatBot = () => {
     };
   }, []);
 
-  // Update recognition state when listening changes
   useEffect(() => {
     if (isListening && recognitionRef.current) {
       try {
@@ -121,13 +116,11 @@ const ChatBot = () => {
   const sendMessage = async () => {
     if (!input.trim()) return;
     
-    // Add user message
     const userMessage = { sender: "user", text: input };
     setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
 
     try {
-      // Call the Supabase Edge Function for chat
       const { data, error } = await supabase.functions.invoke('chat', {
         body: { message: input }
       });
@@ -143,12 +136,10 @@ const ChatBot = () => {
         };
         setMessages((prev) => [...prev, errorMessage]);
       } else {
-        // Add bot response
         const botResponse = data.response;
         const botMessage = { sender: "jarvis", text: botResponse };
         setMessages((prev) => [...prev, botMessage]);
         
-        // If audio is enabled, convert the text to speech
         if (audioEnabled) {
           await speakText(botResponse);
         }
@@ -179,7 +170,6 @@ const ChatBot = () => {
         throw new Error(error?.message || "Failed to synthesize speech");
       }
       
-      // Convert base64 to an audio Blob
       const binaryString = atob(data.audio);
       const bytes = new Uint8Array(binaryString.length);
       for (let i = 0; i < binaryString.length; i++) {
@@ -187,13 +177,11 @@ const ChatBot = () => {
       }
       const audioBlob = new Blob([bytes], { type: 'audio/mpeg' });
       
-      // Play the audio
       if (audioRef.current) {
         const audioUrl = URL.createObjectURL(audioBlob);
         audioRef.current.src = audioUrl;
         await audioRef.current.play();
         
-        // Clean up URL object after playing
         audioRef.current.onended = () => {
           URL.revokeObjectURL(audioUrl);
           setIsSpeaking(false);
@@ -212,7 +200,6 @@ const ChatBot = () => {
       toast.success("Voice responses enabled");
     } else {
       toast.info("Voice responses disabled");
-      // Stop any current speech
       if (audioRef.current && isSpeaking) {
         audioRef.current.pause();
         setIsSpeaking(false);
@@ -245,7 +232,6 @@ const ChatBot = () => {
     
     setInput(text);
     
-    // Add user message with transcribed text
     const userMessage = { sender: "user", text: text };
     setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
@@ -264,12 +250,10 @@ const ChatBot = () => {
         };
         setMessages((prev) => [...prev, errorMessage]);
       } else {
-        // Add bot response
         const botResponse = chatData.response;
         const botMessage = { sender: "jarvis", text: botResponse };
         setMessages((prev) => [...prev, botMessage]);
         
-        // If audio is enabled, convert the text to speech
         if (audioEnabled) {
           await speakText(botResponse);
         }
@@ -328,7 +312,6 @@ const ChatBot = () => {
         </div>
       </div>
       
-      {/* Voice input indicator with live transcription */}
       {isListening && (
         <div className="mb-3 p-3 bg-red-900/20 border border-red-500/30 rounded-md">
           <div className="flex items-center justify-between mb-2">
@@ -338,7 +321,6 @@ const ChatBot = () => {
             </div>
           </div>
           
-          {/* Live transcription display */}
           <div className="bg-slate-900/50 p-2 rounded border border-slate-700/50 mt-1">
             <p className="text-base leading-relaxed text-white font-medium min-h-[2.5rem]">
               {interimTranscript || <span className="text-slate-400 italic">Speak now...</span>}
