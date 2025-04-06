@@ -22,7 +22,7 @@ const MeetingControls = ({
 }: MeetingControlsProps) => {
   if (isConnected) {
     return (
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Button 
           variant="outline" 
           size="sm" 
@@ -53,7 +53,7 @@ const MeetingControls = ({
       size="sm" 
       disabled={isLoading}
       onClick={onStartMeeting}
-      className="flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white font-medium"
+      className="flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white font-medium w-full sm:w-auto"
     >
       {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Mic className="h-3 w-3" />}
       <span>Start Meeting</span>
