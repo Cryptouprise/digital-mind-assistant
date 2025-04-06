@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Volume2, VolumeX, Mic, MicOff, Activity } from "lucide-react";
+import { Volume2, VolumeX, Mic, MicOff, Activity, Send } from "lucide-react";
 import { useBreakpoint } from "@/hooks/use-mobile";
 
 type SpeechRecognitionInstance = SpeechRecognition & {
@@ -25,24 +25,47 @@ const ChatBot = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isMobile = useBreakpoint(768);
   const speechTimeoutRef = useRef<number | null>(null);
+  const lastTranscriptRef = useRef<string>("");
+  const restartTimeoutRef = useRef<number | null>(null);
   
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const isRecognitionSupported = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, interimTranscript]);
-
-  useEffect(() => {
+    // Initialize audio element
     audioRef.current = new Audio();
-    audioRef.current.onended = () => setIsSpeaking(false);
+    audioRef.current.onended = () => {
+      setIsSpeaking(false);
+      
+      // Restart speech recognition after audio finishes
+      if (isListening && recognitionRef.current) {
+        try {
+          recognitionRef.current.start();
+          console.log('Restarting speech recognition after audio');
+        } catch (e) {
+          console.error('Error restarting speech recognition after audio:', e);
+        }
+      }
+    };
+    
     audioRef.current.onerror = () => {
       setIsSpeaking(false);
       toast.error("Failed to play audio");
+      
+      // Restart speech recognition after audio error
+      if (isListening && recognitionRef.current) {
+        try {
+          recognitionRef.current.start();
+        } catch (e) {
+          console.error('Error restarting speech recognition after audio error:', e);
+        }
+      }
     };
 
+    // Initialize speech recognition
     initSpeechRecognition();
 
+    // Clean up on component unmount
     return () => {
       if (audioRef.current) {
         audioRef.current.pause();
@@ -56,9 +79,19 @@ const ChatBot = () => {
       if (speechTimeoutRef.current) {
         window.clearTimeout(speechTimeoutRef.current);
       }
+      
+      if (restartTimeoutRef.current) {
+        window.clearTimeout(restartTimeoutRef.current);
+      }
     };
   }, []);
 
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, interimTranscript]);
+
+  // Initialize speech recognition
   const initSpeechRecognition = () => {
     if (isRecognitionSupported) {
       const SpeechRecognitionClass = window.webkitSpeechRecognition || window.SpeechRecognition;
@@ -66,6 +99,11 @@ const ChatBot = () => {
       recognitionRef.current.continuous = true;
       recognitionRef.current.interimResults = true;
       recognitionRef.current.lang = 'en-US';
+      recognitionRef.current.maxAlternatives = 1;
+
+      recognitionRef.current.onstart = () => {
+        console.log('Speech recognition started');
+      };
 
       recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
         let interimText = '';
@@ -80,40 +118,54 @@ const ChatBot = () => {
           }
         }
 
-        setInterimTranscript(interimText);
-
-        // Reset the speech timeout to detect pauses
-        if (speechTimeoutRef.current) {
-          window.clearTimeout(speechTimeoutRef.current);
-        }
-
+        // Update the interim transcript for display
         if (interimText) {
+          setInterimTranscript(interimText);
+          
+          // Reset the speech timeout to detect pauses
+          if (speechTimeoutRef.current) {
+            window.clearTimeout(speechTimeoutRef.current);
+          }
+          
+          // Process speech after a 1.5s pause
           speechTimeoutRef.current = window.setTimeout(() => {
-            if (interimText.trim()) {
+            if (interimText.trim() && interimText !== lastTranscriptRef.current) {
+              lastTranscriptRef.current = interimText.trim();
               processVoiceInput(interimText.trim());
               setInterimTranscript("");
             }
-          }, 1500); // Wait for 1.5 seconds of silence before processing
+          }, 1500);
         }
 
+        // Process final text if available
         if (finalText) {
           if (speechTimeoutRef.current) {
             window.clearTimeout(speechTimeoutRef.current);
           }
-          processVoiceInput(finalText.trim());
-          setInterimTranscript("");
+          
+          const trimmedText = finalText.trim();
+          if (trimmedText && trimmedText !== lastTranscriptRef.current) {
+            lastTranscriptRef.current = trimmedText;
+            processVoiceInput(trimmedText);
+            setInterimTranscript("");
+          }
         }
       };
 
       recognitionRef.current.onerror = (event: any) => {
         console.error('Speech recognition error:', event.error);
-        if (event.error === 'network') {
-          toast.error("Network error. Please check your connection.");
-        }
         
-        // Don't stop listening - just notify the error
+        // Don't stop listening for non-critical errors
         if (event.error === 'no-speech') {
           console.log('No speech detected');
+        } else if (event.error === 'audio-capture') {
+          toast.error("No microphone detected. Please check your device.");
+          setIsListening(false);
+        } else if (event.error === 'not-allowed') {
+          toast.error("Microphone access denied. Please allow microphone access.");
+          setIsListening(false);
+        } else if (event.error === 'network') {
+          toast.error("Network error. Please check your connection.");
         } else {
           toast.error(`Speech recognition error: ${event.error}`);
         }
@@ -121,26 +173,34 @@ const ChatBot = () => {
 
       recognitionRef.current.onend = () => {
         console.log('Speech recognition service ended');
-        // Auto restart if it's supposed to be listening
-        if (isListening) {
-          try {
-            recognitionRef.current?.start();
-            console.log('Restarted speech recognition');
-          } catch (e) {
-            console.error('Error restarting speech recognition:', e);
-            setIsListening(false);
-            toast.error("Failed to restart listening. Please try again.");
-          }
+        
+        // Auto restart if it's supposed to be listening and not speaking
+        if (isListening && !isSpeaking) {
+          // Add a small delay to prevent rapid restarts
+          restartTimeoutRef.current = window.setTimeout(() => {
+            try {
+              if (recognitionRef.current && isListening && !isSpeaking) {
+                recognitionRef.current.start();
+                console.log('Restarted speech recognition');
+              }
+            } catch (e) {
+              console.error('Error restarting speech recognition:', e);
+              toast.error("Failed to restart listening. Please try again.");
+              setIsListening(false);
+            }
+          }, 300);
         }
       };
     }
   };
 
+  // Effect to handle speech recognition start/stop
   useEffect(() => {
-    if (isListening && recognitionRef.current) {
+    if (isListening && recognitionRef.current && !isSpeaking) {
       try {
         recognitionRef.current.start();
         console.log('Started speech recognition');
+        toast.success("Listening... Speak now");
       } catch (e) {
         console.error('Error starting speech recognition:', e);
         toast.error("Failed to start listening. Please try again.");
@@ -156,6 +216,7 @@ const ChatBot = () => {
     }
   }, [isListening]);
 
+  // Send text message
   const sendMessage = async () => {
     if (!input.trim()) return;
     
@@ -183,6 +244,7 @@ const ChatBot = () => {
         const botMessage = { sender: "jarvis", text: botResponse };
         setMessages((prev) => [...prev, botMessage]);
         
+        // Speak the response if audio is enabled
         if (audioEnabled) {
           await speakText(botResponse);
         }
@@ -201,9 +263,19 @@ const ChatBot = () => {
     setInput("");
   };
 
+  // Text to speech
   const speakText = async (text: string) => {
     try {
       setIsSpeaking(true);
+      
+      // Temporarily pause speech recognition while generating speech
+      if (isListening && recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {
+          console.error('Error stopping speech recognition before TTS:', e);
+        }
+      }
       
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
         body: { text }
@@ -224,11 +296,6 @@ const ChatBot = () => {
         const audioUrl = URL.createObjectURL(audioBlob);
         audioRef.current.src = audioUrl;
         
-        // Temporarily pause speech recognition while playing audio
-        if (isListening && recognitionRef.current) {
-          recognitionRef.current.stop();
-        }
-        
         await audioRef.current.play();
         
         audioRef.current.onended = () => {
@@ -239,6 +306,7 @@ const ChatBot = () => {
           if (isListening && recognitionRef.current) {
             try {
               recognitionRef.current.start();
+              console.log('Restarted speech recognition after audio playback');
             } catch (e) {
               console.error('Error restarting speech recognition after audio:', e);
             }
@@ -261,6 +329,7 @@ const ChatBot = () => {
     }
   };
 
+  // Toggle audio
   const toggleAudio = () => {
     setAudioEnabled(!audioEnabled);
     if (!audioEnabled) {
@@ -274,41 +343,74 @@ const ChatBot = () => {
     }
   };
 
+  // Start listening
   const startListening = async () => {
     if (!isRecognitionSupported) {
       toast.error("Speech recognition is not supported in your browser.");
       return;
     }
 
+    // Reset state for a fresh start
     setIsListening(true);
     setInterimTranscript("");
-    toast.success("Listening... Speak now");
-  };
-
-  const stopListening = () => {
-    setIsListening(false);
+    lastTranscriptRef.current = "";
+    
+    // Clear any pending timeouts
     if (speechTimeoutRef.current) {
       window.clearTimeout(speechTimeoutRef.current);
     }
     
-    toast.info("Stopped listening.");
-    if (interimTranscript.trim()) {
-      processVoiceInput(interimTranscript.trim());
+    if (restartTimeoutRef.current) {
+      window.clearTimeout(restartTimeoutRef.current);
     }
-    setInterimTranscript("");
   };
 
+  // Stop listening
+  const stopListening = () => {
+    setIsListening(false);
+    
+    // Clear timeouts
+    if (speechTimeoutRef.current) {
+      window.clearTimeout(speechTimeoutRef.current);
+    }
+    
+    if (restartTimeoutRef.current) {
+      window.clearTimeout(restartTimeoutRef.current);
+    }
+    
+    // Process any pending interim transcript
+    if (interimTranscript.trim() && interimTranscript.trim() !== lastTranscriptRef.current) {
+      lastTranscriptRef.current = interimTranscript.trim();
+      processVoiceInput(interimTranscript.trim());
+    }
+    
+    setInterimTranscript("");
+    toast.info("Stopped listening.");
+  };
+
+  // Process voice input
   const processVoiceInput = async (text: string) => {
-    if (!text || voiceProcessing) return;
+    if (!text || voiceProcessing || text === lastTranscriptRef.current) return;
     
     setVoiceProcessing(true);
     setInput(text);
     
+    // Add user message to chat
     const userMessage = { sender: "user", text: text };
     setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
+    
+    // Temporarily stop listening while processing
+    if (isListening && recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {
+        console.error('Error stopping speech recognition during processing:', e);
+      }
+    }
 
     try {
+      // Call chat function
       const { data: chatData, error: chatError } = await supabase.functions.invoke('chat', {
         body: { message: text }
       });
@@ -326,8 +428,16 @@ const ChatBot = () => {
         const botMessage = { sender: "jarvis", text: botResponse };
         setMessages((prev) => [...prev, botMessage]);
         
+        // Speak response if audio is enabled
         if (audioEnabled) {
           await speakText(botResponse);
+        } else if (isListening && recognitionRef.current) {
+          // If not speaking, restart listening
+          try {
+            recognitionRef.current.start();
+          } catch (e) {
+            console.error('Error restarting speech recognition after processing:', e);
+          }
         }
       }
     } catch (chatErr) {
@@ -338,13 +448,24 @@ const ChatBot = () => {
         text: "Sorry, I encountered an unexpected error. Please try again." 
       };
       setMessages((prev) => [...prev, errorMessage]);
+      
+      // Restart listening if there was an error
+      if (isListening && recognitionRef.current) {
+        try {
+          recognitionRef.current.start();
+        } catch (e) {
+          console.error('Error restarting speech recognition after error:', e);
+        }
+      }
     }
     
+    // Reset state
     setIsLoading(false);
     setInput("");
     setVoiceProcessing(false);
   };
 
+  // Handle keyboard input
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -357,7 +478,7 @@ const ChatBot = () => {
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-xl font-bold flex items-center text-white">
           <span className="mr-2">Jarvis Assistant</span>
-          {(isLoading || voiceProcessing) && (
+          {(isLoading || voiceProcessing || isSpeaking) && (
             <span className="inline-block w-4 h-4 border-2 border-t-transparent border-blue-600 rounded-full animate-spin"></span>
           )}
         </h2>
@@ -375,7 +496,7 @@ const ChatBot = () => {
             variant={isListening ? "destructive" : "outline"}
             size="icon"
             onClick={isListening ? stopListening : startListening}
-            disabled={isLoading || isSpeaking || voiceProcessing}
+            disabled={isLoading || voiceProcessing || (isSpeaking && isListening)}
             title={isListening ? "Stop listening" : "Start voice input"}
             className={isListening ? "animate-pulse" : ""}
           >
@@ -393,6 +514,9 @@ const ChatBot = () => {
                 {interimTranscript ? "Hearing you..." : "Listening..."}
               </span>
             </div>
+            {isSpeaking && (
+              <span className="text-xs text-amber-300 animate-pulse">Jarvis is speaking...</span>
+            )}
           </div>
           
           <div className="bg-slate-900/50 p-2 rounded border border-slate-700/50 mt-1">
@@ -423,7 +547,7 @@ const ChatBot = () => {
                   }`}
                 >
                   <p className="text-base leading-relaxed font-medium">{msg.text}</p>
-                  {isSpeaking && msg === messages[messages.length - 1] && msg.sender === "jarvis" && (
+                  {isSpeaking && idx === messages.length - 1 && msg.sender === "jarvis" && (
                     <div className="mt-1 text-xs opacity-70 flex items-center">
                       <Volume2 className="h-3 w-3 mr-1 animate-pulse" /> Speaking...
                     </div>
@@ -442,7 +566,7 @@ const ChatBot = () => {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Ask Jarvis..."
-          disabled={isLoading || isListening || voiceProcessing}
+          disabled={isLoading || voiceProcessing}
           className="flex-1 bg-slate-700 text-white border-slate-600 placeholder:text-slate-400"
         />
         <div className="flex gap-2">
@@ -450,7 +574,7 @@ const ChatBot = () => {
             <Button
               variant={isListening ? "destructive" : "outline"}
               onClick={isListening ? stopListening : startListening}
-              disabled={isLoading || !isRecognitionSupported || voiceProcessing || isSpeaking}
+              disabled={isLoading || !isRecognitionSupported || voiceProcessing || (isSpeaking && isListening)}
               className={`hidden sm:flex items-center gap-1 ${isListening ? "animate-pulse" : ""}`}
             >
               {isListening ? "Stop" : "Voice Input"}
@@ -462,6 +586,7 @@ const ChatBot = () => {
             disabled={isLoading || !input.trim() || voiceProcessing}
             className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
           >
+            <Send className="h-4 w-4 mr-2" />
             Send
           </Button>
         </div>
