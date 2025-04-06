@@ -21,6 +21,15 @@ type BrandingSettings = {
   logoUrl: string;
 };
 
+// Define a type for settings table rows
+type SettingsRow = {
+  id: string;
+  key: string;
+  value: string;
+  created_at: string;
+  updated_at: string;
+};
+
 const Settings = () => {
   // Brand settings
   const [brandName, setBrandName] = useState("");
@@ -41,17 +50,18 @@ const Settings = () => {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        // Use any() to bypass TypeScript's type checking for now
-        // since our types don't yet know about the settings table
+        // Use type casting to bypass TypeScript's type checking
+        // since the types don't yet know about the settings table
         const { data: brandData, error: brandError } = await supabase
-          .from('settings')
+          .from('settings' as any)
           .select('*')
           .eq('key', 'branding')
           .single();
           
         if (brandData && !brandError) {
           try {
-            const parsedData = JSON.parse(brandData.value) as BrandingSettings;
+            const typedData = brandData as unknown as SettingsRow;
+            const parsedData = JSON.parse(typedData.value) as BrandingSettings;
             setBrandName(parsedData.name || "");
             setColor(parsedData.color || "#000000");
             setLogoUrl(parsedData.logoUrl || "");
@@ -81,9 +91,9 @@ const Settings = () => {
   const saveBrandSettings = async () => {
     setLoadingBrand(true);
     try {
-      // Use any() to bypass TypeScript's type checking for now
+      // Use type casting to bypass TypeScript's type checking
       const { error } = await supabase
-        .from('settings')
+        .from('settings' as any)
         .upsert({
           key: 'branding',
           value: JSON.stringify({
