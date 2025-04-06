@@ -3,3 +3,9 @@ project_id = "wyqncdsniwajivzyktlr"
 
 [functions.chat]
 verify_jwt = false
+
+[functions.update-secret-keys]
+verify_jwt = true
+
+[functions.get-secret-keys]
+verify_jwt = true
