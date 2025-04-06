@@ -68,6 +68,23 @@ serve(async (req) => {
       keyStatus.symbl = keys.symbl_app_id ? true : keyStatus.symbl;
     }
     
+    // Check existing Symbl credentials if not provided in this request
+    if (!keys.symbl_app_id || !keys.symbl_app_secret) {
+      const { data: existingAppId } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'symbl_app_id')
+        .single();
+      
+      const { data: existingAppSecret } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'symbl_app_secret')
+        .single();
+        
+      keyStatus.symbl = existingAppId && existingAppSecret;
+    }
+    
     // Store each key in the settings table
     for (const [key, value] of Object.entries(keysToStore)) {
       const { error } = await supabase
@@ -78,6 +95,27 @@ serve(async (req) => {
         );
         
       if (error) throw error;
+    }
+    
+    // Get the current key status for other keys not being updated
+    if (!keys.openai || !keys.elevenlabs || !keys.ghl || !keys.stripe) {
+      const { data } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'api_keys_status')
+        .single();
+        
+      if (data) {
+        try {
+          const currentStatus = JSON.parse(data.value);
+          if (!keys.openai) keyStatus.openai = currentStatus.openai;
+          if (!keys.elevenlabs) keyStatus.elevenlabs = currentStatus.elevenlabs;
+          if (!keys.ghl) keyStatus.ghl = currentStatus.ghl;
+          if (!keys.stripe) keyStatus.stripe = currentStatus.stripe;
+        } catch (e) {
+          console.error('Error parsing current key status:', e);
+        }
+      }
     }
     
     // Update the API keys status
@@ -94,7 +132,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: "API keys stored successfully" 
+        message: "API keys stored successfully",
+        status: keyStatus
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

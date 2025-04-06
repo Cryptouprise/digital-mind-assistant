@@ -72,7 +72,7 @@ const SymblCredentialsManager = ({ credentialsSet, onCredentialsUpdate }: SymblC
       
       console.log("Credentials saved response:", data);
       
-      // Wait a bit longer to ensure credentials are properly stored
+      // Wait a bit to ensure credentials are properly stored
       toast({
         title: "Verifying credentials",
         description: "Checking if credentials are valid..."
@@ -113,7 +113,7 @@ const SymblCredentialsManager = ({ credentialsSet, onCredentialsUpdate }: SymblC
         } finally {
           setIsSaving(false);
         }
-      }, 3000);
+      }, 2000);
     } catch (error) {
       console.error("Error saving credentials:", error);
       toast({

@@ -28,21 +28,89 @@ serve(async (req) => {
       .single();
       
     let keyStatus = {
-      openai: Deno.env.get('OPENAI_API_KEY') !== null,
-      elevenlabs: Deno.env.get('ELEVENLABS_API_KEY') !== null,
-      ghl: Deno.env.get('GHL_API_KEY') !== null,
-      stripe: Deno.env.get('STRIPE_SECRET_KEY') !== null
+      openai: false,
+      elevenlabs: false,
+      ghl: false,
+      stripe: false,
+      symbl: false
     };
     
-    // If we have stored status, use that
+    // Check for each individual key in the settings table
+    const { data: openaiKey } = await supabase
+      .from('settings')
+      .select('value')
+      .eq('key', 'openai_api_key')
+      .single();
+    
+    const { data: elevenlabsKey } = await supabase
+      .from('settings')
+      .select('value')
+      .eq('key', 'elevenlabs_api_key')
+      .single();
+      
+    const { data: ghlKey } = await supabase
+      .from('settings')
+      .select('value')
+      .eq('key', 'ghl_api_key')
+      .single();
+      
+    const { data: stripeKey } = await supabase
+      .from('settings')
+      .select('value')
+      .eq('key', 'stripe_secret_key')
+      .single();
+      
+    const { data: symblAppId } = await supabase
+      .from('settings')
+      .select('value')
+      .eq('key', 'symbl_app_id')
+      .single();
+      
+    const { data: symblAppSecret } = await supabase
+      .from('settings')
+      .select('value')
+      .eq('key', 'symbl_app_secret')
+      .single();
+    
+    // Update key status based on actual settings in the database
+    keyStatus = {
+      openai: !!openaiKey,
+      elevenlabs: !!elevenlabsKey,
+      ghl: !!ghlKey,
+      stripe: !!stripeKey,
+      symbl: !!(symblAppId && symblAppSecret)
+    };
+    
+    // If stored status is different from actual, update it
     if (data && !error) {
       try {
-        keyStatus = JSON.parse(data.value);
+        const storedStatus = JSON.parse(data.value);
+        if (JSON.stringify(storedStatus) !== JSON.stringify(keyStatus)) {
+          await supabase
+            .from('settings')
+            .upsert(
+              { 
+                key: 'api_keys_status', 
+                value: JSON.stringify(keyStatus)
+              },
+              { onConflict: 'key' }
+            );
+        }
       } catch (e) {
         console.error('Error parsing key status:', e);
+        // Update with the current status if parsing fails
+        await supabase
+          .from('settings')
+          .upsert(
+            { 
+              key: 'api_keys_status', 
+              value: JSON.stringify(keyStatus)
+            },
+            { onConflict: 'key' }
+          );
       }
     } else {
-      // If no stored status, save the current environment variables status
+      // If no stored status, save the current status
       await supabase
         .from('settings')
         .upsert(
