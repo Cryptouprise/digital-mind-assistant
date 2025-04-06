@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { Database } from "@/integrations/supabase/types";
 
@@ -135,10 +134,10 @@ export const sendFollowUp = async (meetingId: string, contactId: string | null):
         
       if (fetchError) throw fetchError;
       
-      // Prepare the updated raw_data object
+      // Prepare the updated raw_data object with proper type safety
       const rawData = currentMeeting?.raw_data || {};
       const updatedRawData = {
-        ...rawData,
+        ...(typeof rawData === 'object' && rawData !== null ? rawData : {}),
         follow_up_sent: true
       };
       
@@ -172,7 +171,7 @@ export const addTag = async (meetingId: string, tag: string): Promise<boolean> =
     
     // Get current tags or initialize empty array
     let currentTags: string[] = [];
-    if (typeof currentRawData === 'object' && !Array.isArray(currentRawData)) {
+    if (typeof currentRawData === 'object' && currentRawData !== null) {
       const typedRawData = currentRawData as Record<string, unknown>;
       if (typedRawData.tags && Array.isArray(typedRawData.tags)) {
         currentTags = typedRawData.tags as string[];
@@ -185,7 +184,7 @@ export const addTag = async (meetingId: string, tag: string): Promise<boolean> =
       
       // Create new raw_data object with updated tags
       const updatedRawData = {
-        ...currentRawData,
+        ...(typeof currentRawData === 'object' && currentRawData !== null ? currentRawData : {}),
         tags: updatedTags
       };
       
