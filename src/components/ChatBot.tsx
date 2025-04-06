@@ -18,7 +18,7 @@ const ChatBot = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const [audioEnabled, setAudioEnabled] = useState(true); // Default to enabled
+  const [audioEnabled, setAudioEnabled] = useState(true);
   const [interimTranscript, setInterimTranscript] = useState("");
   const [voiceProcessing, setVoiceProcessing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -27,6 +27,7 @@ const ChatBot = () => {
   const speechTimeoutRef = useRef<number | null>(null);
   const lastTranscriptRef = useRef<string>("");
   const restartTimeoutRef = useRef<number | null>(null);
+  const processingRef = useRef<boolean>(false);
   
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const isRecognitionSupported = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
@@ -99,22 +100,26 @@ const ChatBot = () => {
       recognitionRef.current.continuous = true;
       recognitionRef.current.interimResults = true;
       recognitionRef.current.lang = 'en-US';
-      recognitionRef.current.maxAlternatives = 1;
-
+      
       recognitionRef.current.onstart = () => {
         console.log('Speech recognition started');
       };
 
       recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
         let interimText = '';
-        let finalText = '';
 
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const transcript = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalText += transcript + ' ';
-          } else {
+          if (!event.results[i].isFinal) {
             interimText += transcript;
+          } else if (event.results[i].isFinal) {
+            // Final result - process it immediately
+            if (transcript && !processingRef.current) {
+              processingRef.current = true;
+              processVoiceInput(transcript.trim());
+              setInterimTranscript("");
+              return;
+            }
           }
         }
 
@@ -127,35 +132,20 @@ const ChatBot = () => {
             window.clearTimeout(speechTimeoutRef.current);
           }
           
-          // Process speech after a 1.5s pause
+          // Process speech after a short pause (750ms)
           speechTimeoutRef.current = window.setTimeout(() => {
-            if (interimText.trim() && interimText !== lastTranscriptRef.current) {
-              lastTranscriptRef.current = interimText.trim();
+            if (interimText.trim() && !processingRef.current) {
+              processingRef.current = true;
               processVoiceInput(interimText.trim());
               setInterimTranscript("");
             }
-          }, 1500);
-        }
-
-        // Process final text if available
-        if (finalText) {
-          if (speechTimeoutRef.current) {
-            window.clearTimeout(speechTimeoutRef.current);
-          }
-          
-          const trimmedText = finalText.trim();
-          if (trimmedText && trimmedText !== lastTranscriptRef.current) {
-            lastTranscriptRef.current = trimmedText;
-            processVoiceInput(trimmedText);
-            setInterimTranscript("");
-          }
+          }, 750);
         }
       };
 
       recognitionRef.current.onerror = (event: any) => {
         console.error('Speech recognition error:', event.error);
         
-        // Don't stop listening for non-critical errors
         if (event.error === 'no-speech') {
           console.log('No speech detected');
         } else if (event.error === 'audio-capture') {
@@ -166,7 +156,8 @@ const ChatBot = () => {
           setIsListening(false);
         } else if (event.error === 'network') {
           toast.error("Network error. Please check your connection.");
-        } else {
+        } else if (event.error !== 'aborted') {
+          // Don't show error for intentional aborts
           toast.error(`Speech recognition error: ${event.error}`);
         }
       };
@@ -175,7 +166,7 @@ const ChatBot = () => {
         console.log('Speech recognition service ended');
         
         // Auto restart if it's supposed to be listening and not speaking
-        if (isListening && !isSpeaking) {
+        if (isListening && !isSpeaking && !processingRef.current) {
           // Add a small delay to prevent rapid restarts
           restartTimeoutRef.current = window.setTimeout(() => {
             try {
@@ -185,8 +176,6 @@ const ChatBot = () => {
               }
             } catch (e) {
               console.error('Error restarting speech recognition:', e);
-              toast.error("Failed to restart listening. Please try again.");
-              setIsListening(false);
             }
           }, 300);
         }
@@ -196,11 +185,10 @@ const ChatBot = () => {
 
   // Effect to handle speech recognition start/stop
   useEffect(() => {
-    if (isListening && recognitionRef.current && !isSpeaking) {
+    if (isListening && recognitionRef.current && !isSpeaking && !processingRef.current) {
       try {
         recognitionRef.current.start();
         console.log('Started speech recognition');
-        toast.success("Listening... Speak now");
       } catch (e) {
         console.error('Error starting speech recognition:', e);
         toast.error("Failed to start listening. Please try again.");
@@ -210,11 +198,12 @@ const ChatBot = () => {
       try {
         recognitionRef.current.stop();
         console.log('Stopped speech recognition');
+        setInterimTranscript("");
       } catch (e) {
         console.error('Error stopping speech recognition:', e);
       }
     }
-  }, [isListening]);
+  }, [isListening, isSpeaking]);
 
   // Send text message
   const sendMessage = async () => {
@@ -303,7 +292,7 @@ const ChatBot = () => {
           setIsSpeaking(false);
           
           // Resume speech recognition after audio finishes
-          if (isListening && recognitionRef.current) {
+          if (isListening && recognitionRef.current && !processingRef.current) {
             try {
               recognitionRef.current.start();
               console.log('Restarted speech recognition after audio playback');
@@ -319,7 +308,7 @@ const ChatBot = () => {
       toast.error("Failed to play audio response");
       
       // Resume speech recognition if there was an error with TTS
-      if (isListening && recognitionRef.current) {
+      if (isListening && recognitionRef.current && !processingRef.current) {
         try {
           recognitionRef.current.start();
         } catch (e) {
@@ -354,6 +343,7 @@ const ChatBot = () => {
     setIsListening(true);
     setInterimTranscript("");
     lastTranscriptRef.current = "";
+    processingRef.current = false;
     
     // Clear any pending timeouts
     if (speechTimeoutRef.current) {
@@ -379,19 +369,21 @@ const ChatBot = () => {
     }
     
     // Process any pending interim transcript
-    if (interimTranscript.trim() && interimTranscript.trim() !== lastTranscriptRef.current) {
-      lastTranscriptRef.current = interimTranscript.trim();
+    if (interimTranscript.trim() && !processingRef.current) {
       processVoiceInput(interimTranscript.trim());
     }
     
     setInterimTranscript("");
-    toast.info("Stopped listening.");
   };
 
   // Process voice input
   const processVoiceInput = async (text: string) => {
-    if (!text || voiceProcessing || text === lastTranscriptRef.current) return;
+    if (!text || text === lastTranscriptRef.current) {
+      processingRef.current = false;
+      return;
+    }
     
+    lastTranscriptRef.current = text;
     setVoiceProcessing(true);
     setInput(text);
     
@@ -433,6 +425,7 @@ const ChatBot = () => {
           await speakText(botResponse);
         } else if (isListening && recognitionRef.current) {
           // If not speaking, restart listening
+          processingRef.current = false;
           try {
             recognitionRef.current.start();
           } catch (e) {
@@ -450,6 +443,7 @@ const ChatBot = () => {
       setMessages((prev) => [...prev, errorMessage]);
       
       // Restart listening if there was an error
+      processingRef.current = false;
       if (isListening && recognitionRef.current) {
         try {
           recognitionRef.current.start();
@@ -463,6 +457,7 @@ const ChatBot = () => {
     setIsLoading(false);
     setInput("");
     setVoiceProcessing(false);
+    processingRef.current = false;
   };
 
   // Handle keyboard input
@@ -506,10 +501,10 @@ const ChatBot = () => {
       </div>
       
       {isListening && (
-        <div className={`mb-3 p-3 ${interimTranscript ? "bg-green-900/20 border border-green-500/30" : "bg-red-900/20 border border-red-500/30"} rounded-md transition-colors duration-300`}>
-          <div className="flex items-center justify-between mb-2">
+        <div className={`mb-3 p-3 ${interimTranscript ? "bg-green-900/20 border border-green-500/30" : "bg-slate-900/40 border border-slate-700/30"} rounded-md transition-colors duration-300`}>
+          <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
-              <Activity className={`h-4 w-4 ${interimTranscript ? "text-green-400" : "text-red-400"} animate-pulse`} />
+              <Activity className={`h-4 w-4 ${interimTranscript ? "text-green-400 animate-pulse" : "text-slate-400"}`} />
               <span className="text-sm font-medium text-white">
                 {interimTranscript ? "Hearing you..." : "Listening..."}
               </span>
@@ -519,11 +514,13 @@ const ChatBot = () => {
             )}
           </div>
           
-          <div className="bg-slate-900/50 p-2 rounded border border-slate-700/50 mt-1">
-            <p className="text-base leading-relaxed text-white font-medium min-h-[2.5rem]">
-              {interimTranscript || <span className="text-slate-400 italic">Speak now...</span>}
-            </p>
-          </div>
+          {interimTranscript && (
+            <div className="bg-slate-900/50 p-2 rounded border border-slate-700/50 mt-1">
+              <p className="text-base leading-relaxed text-white font-medium">
+                {interimTranscript}
+              </p>
+            </div>
+          )}
         </div>
       )}
       

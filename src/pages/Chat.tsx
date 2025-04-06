@@ -11,7 +11,7 @@ const Chat = () => {
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowHint(false);
-    }, 10000); // Hide hint after 10 seconds
+    }, 8000); // Hide hint after 8 seconds
     
     return () => clearTimeout(timer);
   }, []);
@@ -32,8 +32,8 @@ const Chat = () => {
             </h1>
             
             {showHint && (
-              <div className="text-sm bg-blue-900/30 text-blue-300 px-3 py-1.5 rounded-md animate-pulse">
-                Try saying "Hey Jarvis" to start a conversation
+              <div className="text-sm bg-blue-900/30 text-blue-300 px-3 py-1.5 rounded-md">
+                Click the microphone icon to start voice conversation
               </div>
             )}
           </div>

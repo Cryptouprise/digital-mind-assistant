@@ -20,6 +20,12 @@ export const checkSymblCredentials = async (): Promise<boolean> => {
         
         if (error) {
           console.error(`Credential check error (attempt ${attempt + 1}):`, error);
+          
+          // If this is an edge function error, provide clearer feedback
+          if (error.message?.includes("non-2xx")) {
+            console.error("Edge function returned non-2xx status. Please check your Symbl credentials.");
+          }
+          
           throw new Error(error.message);
         }
         
