@@ -16,7 +16,7 @@ const MobileNavigation = () => {
           <span className="sr-only">Menu</span>
         </Button>
       </SheetTrigger>
-      <SheetContent side="right" className="w-[250px] bg-slate-800 border-slate-700 text-white p-4">
+      <SheetContent side="right" className="w-[250px] bg-slate-900 border-slate-700 text-white p-4">
         <nav className="mt-8 space-y-4">
           <h2 className="text-lg font-semibold mb-4">Navigation</h2>
           
@@ -36,7 +36,7 @@ const NavLink = ({ to, icon, label, isActive }: { to: string, icon: React.ReactN
     className={`flex items-center gap-2 py-3 px-3 rounded-md transition-colors ${
       isActive
         ? "bg-blue-600/20 text-white"
-        : "text-blue-400 hover:text-blue-300 hover:bg-slate-700"
+        : "text-blue-400 hover:text-blue-300 hover:bg-slate-800"
     }`}
   >
     {icon}
