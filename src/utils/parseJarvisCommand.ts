@@ -3,7 +3,7 @@
  * Parser for Jarvis AI commands from text responses
  */
 
-type JarvisCommandType = 'send-followup' | 'add-tag' | 'move-pipeline' | 'launch-workflow' | 'mark-noshow';
+type JarvisCommandType = 'send-followup' | 'add-tag' | 'move-pipeline' | 'launch-workflow' | 'mark-noshow' | 'tag-contact' | 'move-stage';
 
 interface JarvisCommand {
   action: JarvisCommandType;
@@ -14,6 +14,8 @@ interface JarvisCommand {
   tagId?: string;
   workflowId?: string;
   message?: string;
+  tag?: string;
+  stage?: string;
 }
 
 /**
@@ -22,8 +24,8 @@ interface JarvisCommand {
  * @returns A JarvisCommand object if a command is detected, or null if no command is found
  */
 export function parseJarvisCommand(text: string): JarvisCommand | null {
-  // Look for follow-up commands
-  const followUpRegex = /send(?:ing)?\s+(?:a\s+)?follow(?:-|\s)?up\s+(?:to|for)?\s+(?:contact\s+)?([a-zA-Z0-9]+)/i;
+  // Look for follow-up commands - both formats
+  const followUpRegex = /send(?:ing)?\s+(?:a\s+)?follow(?:-|\s)?up\s+(?:message\s+)?(?:to|for)?\s+(?:contact\s+)?([a-zA-Z0-9]+)/i;
   const followUpMatch = text.match(followUpRegex);
   
   if (followUpMatch) {
@@ -34,19 +36,31 @@ export function parseJarvisCommand(text: string): JarvisCommand | null {
     };
   }
   
-  // Look for tag commands
-  const tagRegex = /(?:add|apply)\s+(?:the\s+)?tag\s+([a-zA-Z0-9]+)\s+(?:to|for)\s+(?:contact\s+)?([a-zA-Z0-9]+)/i;
-  const tagMatch = text.match(tagRegex);
+  // Look for tag commands - both formats
+  const tagRegexOriginal = /(?:add|apply)\s+(?:the\s+)?tag\s+([a-zA-Z0-9]+)\s+(?:to|for)\s+(?:contact\s+)?([a-zA-Z0-9]+)/i;
+  const tagMatchOriginal = text.match(tagRegexOriginal);
   
-  if (tagMatch) {
+  if (tagMatchOriginal) {
     return {
       action: 'add-tag',
-      tagId: tagMatch[1],
-      contactId: tagMatch[2]
+      tagId: tagMatchOriginal[1],
+      contactId: tagMatchOriginal[2]
     };
   }
   
-  // Look for pipeline movement commands
+  // New tag format: "Tag John123 as hotlead"
+  const tagRegexNew = /tag\s+([a-zA-Z0-9]+)\s+as\s+([a-zA-Z0-9]+)/i;
+  const tagMatchNew = text.match(tagRegexNew);
+  
+  if (tagMatchNew) {
+    return {
+      action: 'tag-contact',
+      contactId: tagMatchNew[1],
+      tag: tagMatchNew[2]
+    };
+  }
+  
+  // Look for pipeline movement commands - both formats
   const pipelineRegex = /move\s+(?:opportunity\s+)?([a-zA-Z0-9]+)\s+(?:to|into)\s+(?:stage|pipeline stage)\s+([a-zA-Z0-9]+)/i;
   const pipelineMatch = text.match(pipelineRegex);
   
@@ -55,6 +69,18 @@ export function parseJarvisCommand(text: string): JarvisCommand | null {
       action: 'move-pipeline',
       opportunityId: pipelineMatch[1],
       stageId: pipelineMatch[2]
+    };
+  }
+  
+  // New stage movement format: "Move John123 to stage Interested"
+  const stageRegexNew = /move\s+([a-zA-Z0-9]+)\s+to\s+stage\s+(.+)/i;
+  const stageMatchNew = text.match(stageRegexNew);
+  
+  if (stageMatchNew) {
+    return {
+      action: 'move-stage',
+      contactId: stageMatchNew[1],
+      stage: stageMatchNew[2].trim()
     };
   }
   

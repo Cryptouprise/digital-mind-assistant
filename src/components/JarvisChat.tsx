@@ -101,11 +101,27 @@ export default function JarvisChat() {
             toast.success(`Tag ${command.tagId} added to contact ${command.contactId}`);
           }
           break;
+
+        case 'tag-contact':
+          if (command.contactId && command.tag) {
+            // Handle the new tag format
+            await jarvisActions.addTag(command.contactId, command.tag);
+            toast.success(`Tagged contact ${command.contactId} as ${command.tag}`);
+          }
+          break;
           
         case 'move-pipeline':
           if (command.opportunityId && command.stageId) {
             await jarvisActions.movePipelineStage(command.opportunityId, command.stageId);
             toast.success(`Opportunity ${command.opportunityId} moved to stage ${command.stageId}`);
+          }
+          break;
+
+        case 'move-stage':
+          if (command.contactId && command.stage) {
+            // Handle the new stage movement format
+            await jarvisActions.movePipelineStage(command.contactId, command.stage);
+            toast.success(`Moved contact ${command.contactId} to stage ${command.stage}`);
           }
           break;
           
