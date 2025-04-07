@@ -29,8 +29,9 @@ export default function History() {
     
     async function fetchChatLogs() {
       try {
+        // Use type assertion to work around TypeScript issues
         const { data, error } = await supabase
-          .from('ai_logs')
+          .from('ai_logs' as any)
           .select('*')
           .order('created_at', { ascending: false });
           
@@ -38,7 +39,8 @@ export default function History() {
           throw error;
         }
         
-        setLogs(data || []);
+        // Cast the data to match our ChatLog interface
+        setLogs(data as unknown as ChatLog[] || []);
       } catch (err: any) {
         console.error("Error fetching chat logs:", err);
         setError(err.message || "Failed to load chat history");

@@ -44,12 +44,13 @@ export default function JarvisChat() {
       });
 
       // Log the conversation to the database
+      // Use 'from' with a type assertion to work around TypeScript issues
       const { error: logError } = await supabase
-        .from('ai_logs')
+        .from('ai_logs' as any)
         .insert({
           prompt: userPrompt,
           response: data?.response || "No response received"
-        });
+        } as any);
         
       if (logError) {
         console.error("Error logging conversation:", logError);
