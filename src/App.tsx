@@ -10,6 +10,7 @@ import NotFound from "./pages/NotFound";
 import Chat from "./pages/Chat";
 import Settings from "./pages/Settings";
 import Meetings from "./pages/Meetings";
+import Jarvis from "./pages/Jarvis";
 
 const queryClient = new QueryClient();
 
@@ -25,6 +26,7 @@ const App = () => (
               <Route path="/chat" element={<Chat />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/meetings" element={<Meetings />} />
+              <Route path="/jarvis" element={<Jarvis />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
