@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect, useCallback } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { ArrowLeft, CalendarCheck } from "lucide-react";
+import { ArrowLeft, CalendarCheck, LinkIcon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchMeetings } from "@/utils/symblClient";
 import { checkSymblCredentials } from "@/utils/checkSymblCredentials";
@@ -18,8 +17,6 @@ import SymblRealtime from "@/components/meetings/SymblRealtime";
 import JoinMeetingModal from "@/components/meetings/JoinMeetingModal";
 import ZoomMeeting from "@/components/meetings/ZoomMeeting";
 import { Button } from "@/components/ui/button";
-import { Link as LinkIcon, Video, Home } from "lucide-react";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import MobileNavigation from "@/components/MobileNavigation";
 
 interface LocationState {
@@ -55,7 +52,6 @@ const Meetings = () => {
     retry: 3, // Retry 3 times if the request fails
   });
 
-  // Clear location state after using it
   useEffect(() => {
     if (locationState?.activeZoomMeeting) {
       window.history.replaceState({}, document.title);
@@ -86,7 +82,6 @@ const Meetings = () => {
   }, [toast]);
 
   useEffect(() => {
-    // Check if Symbl credentials are set
     checkCredentials();
   }, [checkCredentials]);
 
@@ -98,7 +93,6 @@ const Meetings = () => {
         description: "Your Symbl credentials have been set successfully.",
       });
     }
-    // Refetch meetings after credentials update
     await refetch();
   };
 
@@ -118,7 +112,6 @@ const Meetings = () => {
 
   return (
     <div className="min-h-screen bg-slate-900 text-white pb-6">
-      {/* Fixed navigation header */}
       <header className="fixed top-0 left-0 right-0 z-40 bg-slate-800 border-b border-slate-700 py-3 px-4">
         <div className="max-w-5xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-2">
