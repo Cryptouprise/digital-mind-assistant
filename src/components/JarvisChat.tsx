@@ -5,6 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
+import { parseJarvisCommand } from "@/utils/parseJarvisCommand";
+import { jarvisActions } from "@/utils/jarvisActions";
 
 export default function JarvisChat() {
   const [input, setInput] = useState('');
@@ -36,10 +38,19 @@ export default function JarvisChat() {
         return;
       }
 
+      const response = data?.response || "No response received";
+
+      // Process any commands in the response
+      const parsedCommand = parseJarvisCommand(response);
+      
+      if (parsedCommand) {
+        executeJarvisCommand(parsedCommand);
+      }
+
       // Update the last bot message with the actual response
       setChatLog((prev) => {
         const updated = [...prev];
-        updated[updated.length - 1].bot = data?.response || "No response received";
+        updated[updated.length - 1].bot = response;
         return updated;
       });
 
@@ -49,7 +60,7 @@ export default function JarvisChat() {
         .from('ai_logs' as any)
         .insert({
           prompt: userPrompt,
-          response: data?.response || "No response received"
+          response: response
         } as any);
         
       if (logError) {
@@ -65,6 +76,58 @@ export default function JarvisChat() {
       toast.error("Failed to connect to Jarvis");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const executeJarvisCommand = async (command: ReturnType<typeof parseJarvisCommand>) => {
+    if (!command) return;
+    
+    try {
+      toast.info(`Executing command: ${command.action}...`);
+      
+      switch (command.action) {
+        case 'send-followup':
+          if (command.contactId && command.message) {
+            // Use the GHL client to send a follow-up
+            await ghlClient.sendFollowUp(command.contactId, command.message);
+            toast.success(`Follow-up sent to contact ${command.contactId}`);
+          }
+          break;
+          
+        case 'add-tag':
+          if (command.contactId && command.tagId) {
+            await jarvisActions.addTag(command.contactId, command.tagId);
+            toast.success(`Tag ${command.tagId} added to contact ${command.contactId}`);
+          }
+          break;
+          
+        case 'move-pipeline':
+          if (command.opportunityId && command.stageId) {
+            await jarvisActions.movePipelineStage(command.opportunityId, command.stageId);
+            toast.success(`Opportunity ${command.opportunityId} moved to stage ${command.stageId}`);
+          }
+          break;
+          
+        case 'launch-workflow':
+          if (command.contactId && command.workflowId) {
+            await jarvisActions.launchWorkflow(command.workflowId, command.contactId);
+            toast.success(`Workflow ${command.workflowId} launched for contact ${command.contactId}`);
+          }
+          break;
+          
+        case 'mark-noshow':
+          if (command.appointmentId) {
+            await jarvisActions.markNoShow(command.appointmentId);
+            toast.success(`Appointment ${command.appointmentId} marked as no-show`);
+          }
+          break;
+          
+        default:
+          console.log("Unknown command type:", command);
+      }
+    } catch (err) {
+      console.error("Error executing command:", err);
+      toast.error("Failed to execute command");
     }
   };
 
