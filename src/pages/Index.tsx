@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import Navigation from "@/components/Navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -12,30 +12,81 @@ import {
   Activity,
   ArrowUp,
   Clock,
-  CheckCircle
+  CheckCircle,
+  LineChart
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Roadmap } from "@/components/Roadmap";
+import { supabase } from "@/integrations/supabase/client";
+import { Meeting, fetchMeeting, fetchMeetings } from "@/utils/symblClient";
 
 const Index = () => {
   const isMobile = useIsMobile();
+  const [liveStats, setLiveStats] = useState({
+    meetings: 0,
+    aiLogs: 0,
+    lastMeeting: null as Meeting | null
+  });
+  const [isLoading, setIsLoading] = useState(true);
+  const [latestMeetingSummary, setLatestMeetingSummary] = useState("");
   
-  // Updated stats data to reflect project completion
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      setIsLoading(true);
+      try {
+        // Fetch meetings
+        const meetings = await fetchMeetings();
+        
+        // Fetch AI logs count
+        const { count: aiLogsCount } = await supabase
+          .from('ai_logs')
+          .select('*', { count: 'exact', head: true });
+        
+        // Get latest meeting with a summary
+        const completedMeetings = meetings.filter(m => 
+          m.status === 'completed' && m.summary);
+          
+        let lastMeeting = null;
+        let summaryText = "No recent meeting summaries available.";
+        
+        if (completedMeetings.length > 0) {
+          lastMeeting = completedMeetings[0];
+          summaryText = lastMeeting.summary || summaryText;
+        }
+        
+        setLiveStats({
+          meetings: meetings.length,
+          aiLogs: aiLogsCount || 0,
+          lastMeeting
+        });
+        
+        setLatestMeetingSummary(summaryText);
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchDashboardData();
+  }, []);
+  
+  // Updated stats data to reflect project completion and live data
   const stats = [
     { 
-      title: "Implementation Progress", 
-      value: "100%", 
-      change: "Complete", 
+      title: "Meetings Processed", 
+      value: isLoading ? "Loading..." : liveStats.meetings.toString(), 
+      change: "Synced", 
       trend: "up", 
-      description: "All features implemented"
+      description: "Total recorded meetings"
     },
     { 
-      title: "Real-time Features", 
-      value: "4/4", 
-      change: "Complete", 
+      title: "AI Interactions", 
+      value: isLoading ? "Loading..." : liveStats.aiLogs.toString(), 
+      change: "Active", 
       trend: "up", 
-      description: "All planned features" 
+      description: "Jarvis conversations" 
     },
     { 
       title: "Integration Components", 
@@ -81,6 +132,34 @@ const Index = () => {
               </Card>
             ))}
           </div>
+
+          {/* Symbl Meeting Summary */}
+          <Card className="bg-slate-800 border-slate-700 text-white mb-8">
+            <CardHeader className="bg-gradient-to-r from-blue-900 to-slate-800">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <LineChart className="h-5 w-5 text-blue-400" />
+                Latest Meeting Summary
+              </CardTitle>
+              <CardDescription className="text-gray-400">
+                {isLoading ? "Loading meeting data..." : (liveStats.lastMeeting ? 
+                  `From "${liveStats.lastMeeting.title}" on ${new Date(liveStats.lastMeeting.date).toLocaleDateString()}` : 
+                  "No recent meetings with summaries")}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4">
+              {isLoading ? (
+                <div className="flex items-center justify-center p-4">
+                  <p className="text-gray-400">Loading summary data...</p>
+                </div>
+              ) : (
+                <div className="bg-slate-700/50 p-4 rounded-md">
+                  <p className="text-sm whitespace-pre-line text-slate-300">
+                    {latestMeetingSummary}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Recent Activity */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
