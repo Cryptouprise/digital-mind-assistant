@@ -3,7 +3,7 @@
  * Parser for Jarvis AI commands from text responses
  */
 
-type JarvisCommandType = 'send-followup' | 'add-tag' | 'move-pipeline' | 'launch-workflow' | 'mark-noshow' | 'tag-contact' | 'move-stage';
+type JarvisCommandType = 'send-followup' | 'add-tag' | 'move-pipeline' | 'launch-workflow' | 'mark-noshow' | 'tag-contact' | 'move-stage' | 'start-campaign';
 
 interface JarvisCommand {
   action: JarvisCommandType;
@@ -16,6 +16,7 @@ interface JarvisCommand {
   message?: string;
   tag?: string;
   stage?: string;
+  campaignName?: string;
 }
 
 /**
@@ -104,6 +105,18 @@ export function parseJarvisCommand(text: string): JarvisCommand | null {
     return {
       action: 'mark-noshow',
       appointmentId: noshowMatch[1]
+    };
+  }
+  
+  // Look for campaign start commands
+  const campaignRegex = /start\s+(?:the\s+)?(.*?)\s+campaign\s+for\s+([a-zA-Z0-9]+)/i;
+  const campaignMatch = text.match(campaignRegex);
+  
+  if (campaignMatch) {
+    return {
+      action: 'start-campaign',
+      campaignName: campaignMatch[1],
+      contactId: campaignMatch[2]
     };
   }
   

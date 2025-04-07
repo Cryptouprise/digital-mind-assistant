@@ -139,6 +139,13 @@ export default function JarvisChat() {
           }
           break;
           
+        case 'start-campaign':
+          if (command.contactId && command.campaignName) {
+            await ghlClient.launchWorkflow(command.campaignName, command.contactId);
+            toast.success(`Campaign "${command.campaignName}" started for contact ${command.contactId}`);
+          }
+          break;
+          
         default:
           console.log("Unknown command type:", command);
       }
