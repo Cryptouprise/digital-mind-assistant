@@ -24,7 +24,7 @@ interface JarvisCommand {
  * @returns A JarvisCommand object if a command is detected, or null if no command is found
  */
 export function parseJarvisCommand(text: string): JarvisCommand | null {
-  // Look for follow-up commands - both formats
+  // Look for follow-up commands
   const followUpRegex = /send(?:ing)?\s+(?:a\s+)?follow(?:-|\s)?up\s+(?:message\s+)?(?:to|for)?\s+(?:contact\s+)?([a-zA-Z0-9]+)/i;
   const followUpMatch = text.match(followUpRegex);
   
@@ -60,7 +60,7 @@ export function parseJarvisCommand(text: string): JarvisCommand | null {
     };
   }
   
-  // Look for pipeline movement commands - both formats
+  // Look for pipeline movement commands
   const pipelineRegex = /move\s+(?:opportunity\s+)?([a-zA-Z0-9]+)\s+(?:to|into)\s+(?:stage|pipeline stage)\s+([a-zA-Z0-9]+)/i;
   const pipelineMatch = text.match(pipelineRegex);
   
