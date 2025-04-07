@@ -178,30 +178,39 @@ export type Database = {
       }
       meetings: {
         Row: {
+          contact_id: string | null
           date: string
+          follow_up_sent: boolean | null
           id: string
           raw_data: Json | null
           status: string | null
           summary: string | null
           symbl_conversation_id: string | null
+          tags: string[] | null
           title: string
         }
         Insert: {
+          contact_id?: string | null
           date?: string
+          follow_up_sent?: boolean | null
           id?: string
           raw_data?: Json | null
           status?: string | null
           summary?: string | null
           symbl_conversation_id?: string | null
+          tags?: string[] | null
           title: string
         }
         Update: {
+          contact_id?: string | null
           date?: string
+          follow_up_sent?: boolean | null
           id?: string
           raw_data?: Json | null
           status?: string | null
           summary?: string | null
           symbl_conversation_id?: string | null
+          tags?: string[] | null
           title?: string
         }
         Relationships: []

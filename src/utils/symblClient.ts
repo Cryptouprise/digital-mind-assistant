@@ -1,5 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
+import { PostgrestError } from "@supabase/supabase-js";
 
 export interface Meeting {
   id: string;
@@ -14,7 +15,7 @@ export interface Meeting {
   summary?: string;
 }
 
-export const fetchMeetings = async () => {
+export const fetchMeetings = async (): Promise<Meeting[]> => {
   const { data, error } = await supabase
     .from('meetings')
     .select('*')
@@ -25,10 +26,14 @@ export const fetchMeetings = async () => {
     throw error;
   }
 
-  return data;
+  // Ensure all status values are valid 'processing' or 'completed'
+  return (data || []).map(meeting => ({
+    ...meeting,
+    status: meeting.status === 'completed' ? 'completed' : 'processing'
+  })) as Meeting[];
 };
 
-export const fetchMeeting = async (id: string) => {
+export const fetchMeeting = async (id: string): Promise<Meeting> => {
   const { data, error } = await supabase
     .from('meetings')
     .select('*')
@@ -40,7 +45,11 @@ export const fetchMeeting = async (id: string) => {
     throw error;
   }
 
-  return data;
+  // Ensure status is valid 'processing' or 'completed'
+  return {
+    ...data,
+    status: data.status === 'completed' ? 'completed' : 'processing'
+  } as Meeting;
 };
 
 export const getSymblToken = async (): Promise<string> => {
@@ -65,8 +74,6 @@ export const getSymblToken = async (): Promise<string> => {
     throw err;
   }
 }
-
-// Add the missing functions that are imported in other files
 
 export const uploadMeetingAudio = async (params: { url?: string, fileContent?: string, fileName?: string }): Promise<any> => {
   try {
@@ -135,11 +142,10 @@ export const sendFollowUp = async (meetingId: string, contactId: string): Promis
   try {
     // This would typically call a Supabase edge function that handles sending follow-ups
     // For now, we'll simulate this by updating the meeting record
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('meetings')
       .update({ follow_up_sent: true })
-      .eq('id', meetingId)
-      .select();
+      .eq('id', meetingId);
     
     if (error) {
       console.error("Error sending follow-up:", error);
@@ -156,7 +162,7 @@ export const sendFollowUp = async (meetingId: string, contactId: string): Promis
 export const addTag = async (meetingId: string, tag: string): Promise<void> => {
   try {
     // First get the current meeting to retrieve existing tags
-    const { data: meeting, error: fetchError } = await supabase
+    const { data, error: fetchError } = await supabase
       .from('meetings')
       .select('tags')
       .eq('id', meetingId)
@@ -168,7 +174,7 @@ export const addTag = async (meetingId: string, tag: string): Promise<void> => {
     }
     
     // Prepare the updated tags array
-    const currentTags = meeting.tags || [];
+    const currentTags = data?.tags || [];
     const newTags = [...currentTags];
     
     // Only add the tag if it's not already present
@@ -199,7 +205,7 @@ export const runJarvisAutomation = async (meetingId: string): Promise<boolean> =
     const { error } = await supabase
       .from('meetings')
       .update({
-        raw_data: supabase.sql`raw_data || '{"jarvis_automation_run": true}'::jsonb`
+        raw_data: { jarvis_automation_run: true }
       })
       .eq('id', meetingId);
     
