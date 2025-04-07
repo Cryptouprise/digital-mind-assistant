@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { parseJarvisCommand } from "@/utils/parseJarvisCommand";
 import { jarvisActions } from "@/utils/jarvisActions";
+import { ghlClient } from "@/utils/ghlClient";
 
 export default function JarvisChat() {
   const [input, setInput] = useState('');
