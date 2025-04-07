@@ -42,6 +42,18 @@ export default function JarvisChat() {
         updated[updated.length - 1].bot = data?.response || "No response received";
         return updated;
       });
+
+      // Log the conversation to the database
+      const { error: logError } = await supabase
+        .from('ai_logs')
+        .insert({
+          prompt: userPrompt,
+          response: data?.response || "No response received"
+        });
+        
+      if (logError) {
+        console.error("Error logging conversation:", logError);
+      }
     } catch (err) {
       console.error("Error in chat request:", err);
       setChatLog((prev) => {

@@ -9,6 +9,30 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      ai_logs: {
+        Row: {
+          created_at: string
+          id: string
+          prompt: string
+          response: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          prompt: string
+          response: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          prompt?: string
+          response?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       app_users: {
         Row: {
           created_at: string

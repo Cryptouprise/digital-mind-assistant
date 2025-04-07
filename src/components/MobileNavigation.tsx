@@ -1,7 +1,7 @@
 
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Home, MessageCircle, Settings, Video, Menu, Bot } from "lucide-react";
+import { Home, MessageCircle, Settings, Video, Menu, Bot, History } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 
@@ -24,6 +24,7 @@ const MobileNavigation = () => {
           <NavLink to="/meetings" icon={<Video className="h-5 w-5" />} label="Meetings" isActive={location.pathname === "/meetings"} />
           <NavLink to="/chat" icon={<MessageCircle className="h-5 w-5" />} label="Chat" isActive={location.pathname === "/chat"} />
           <NavLink to="/jarvis" icon={<Bot className="h-5 w-5" />} label="Jarvis" isActive={location.pathname === "/jarvis"} />
+          <NavLink to="/history" icon={<History className="h-5 w-5" />} label="History" isActive={location.pathname === "/history"} />
           <NavLink to="/settings" icon={<Settings className="h-5 w-5" />} label="Settings" isActive={location.pathname === "/settings"} />
         </nav>
       </SheetContent>

@@ -11,6 +11,7 @@ import Chat from "./pages/Chat";
 import Settings from "./pages/Settings";
 import Meetings from "./pages/Meetings";
 import Jarvis from "./pages/Jarvis";
+import History from "./pages/History";
 
 const queryClient = new QueryClient();
 
@@ -27,6 +28,7 @@ const App = () => (
               <Route path="/settings" element={<Settings />} />
               <Route path="/meetings" element={<Meetings />} />
               <Route path="/jarvis" element={<Jarvis />} />
+              <Route path="/history" element={<History />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
