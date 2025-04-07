@@ -20,28 +20,45 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { Roadmap } from "@/components/Roadmap";
 import { supabase } from "@/integrations/supabase/client";
 import { Meeting, fetchMeeting, fetchMeetings } from "@/utils/symblClient";
+import NotificationCenter from "@/components/NotificationCenter";
+import LeadSmartCard from "@/components/LeadSmartCard";
+import { LeadProps } from "@/components/LeadSmartCard";
 
 const Index = () => {
   const isMobile = useIsMobile();
   const [liveStats, setLiveStats] = useState({
     meetings: 0,
-    aiLogs: 0,
+    campaigns: 0,
+    followUps: 0,
     lastMeeting: null as Meeting | null
   });
   const [isLoading, setIsLoading] = useState(true);
   const [latestMeetingSummary, setLatestMeetingSummary] = useState("");
+  const [highPriorityLeads, setHighPriorityLeads] = useState<LeadProps[]>([
+    { name: 'Jane Doe', email: 'jane@example.com', stage: 'Discovery', status: 'Hot', lastTouch: '2 days ago' },
+    { name: 'Mark Price', email: 'mark@brand.io', stage: 'Proposal', status: 'Warm', lastTouch: '5 days ago' },
+  ]);
   
   useEffect(() => {
     const fetchDashboardData = async () => {
       setIsLoading(true);
       try {
+        // Fetch dashboard stats
+        const { data: statsData, error: statsError } = await supabase.functions.invoke('dashboard-stats');
+        
+        if (statsError) {
+          console.error("Error fetching dashboard stats:", statsError);
+        } else if (statsData) {
+          setLiveStats({
+            meetings: statsData.meetings || 0,
+            campaigns: statsData.campaigns || 0,
+            followUps: statsData.followUps || 0,
+            lastMeeting: null
+          });
+        }
+        
         // Fetch meetings
         const meetings = await fetchMeetings();
-        
-        // Fetch AI logs count
-        const { count: aiLogsCount } = await supabase
-          .from('ai_logs')
-          .select('*', { count: 'exact', head: true });
         
         // Get latest meeting with a summary
         const completedMeetings = meetings.filter(m => 
@@ -53,13 +70,12 @@ const Index = () => {
         if (completedMeetings.length > 0) {
           lastMeeting = completedMeetings[0];
           summaryText = lastMeeting.summary || summaryText;
+          
+          setLiveStats(prev => ({
+            ...prev,
+            lastMeeting
+          }));
         }
-        
-        setLiveStats({
-          meetings: meetings.length,
-          aiLogs: aiLogsCount || 0,
-          lastMeeting
-        });
         
         setLatestMeetingSummary(summaryText);
       } catch (error) {
@@ -82,18 +98,18 @@ const Index = () => {
       description: "Total recorded meetings"
     },
     { 
-      title: "AI Interactions", 
-      value: isLoading ? "Loading..." : liveStats.aiLogs.toString(), 
+      title: "Active Campaigns", 
+      value: isLoading ? "Loading..." : liveStats.campaigns.toString(), 
       change: "Active", 
       trend: "up", 
-      description: "Jarvis conversations" 
+      description: "Marketing campaigns" 
     },
     { 
-      title: "Integration Components", 
-      value: "10", 
+      title: "Follow-ups Generated", 
+      value: isLoading ? "Loading..." : liveStats.followUps.toString(), 
       change: "Ready", 
       trend: "up", 
-      description: "For production use" 
+      description: "From conversations" 
     }
   ];
   
@@ -133,6 +149,11 @@ const Index = () => {
             ))}
           </div>
 
+          {/* Notifications */}
+          <div className="mb-8">
+            <NotificationCenter />
+          </div>
+
           {/* Symbl Meeting Summary */}
           <Card className="bg-slate-800 border-slate-700 text-white mb-8">
             <CardHeader className="bg-gradient-to-r from-blue-900 to-slate-800">
@@ -160,6 +181,19 @@ const Index = () => {
               )}
             </CardContent>
           </Card>
+
+          {/* High Priority Leads */}
+          <div className="mb-8">
+            <h2 className="text-xl font-bold mb-4 flex items-center">
+              <Activity className="h-5 w-5 text-blue-400 mr-2" />
+              High Priority Leads
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {highPriorityLeads.map((lead, i) => (
+                <LeadSmartCard key={i} lead={lead} />
+              ))}
+            </div>
+          </div>
 
           {/* Recent Activity */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
