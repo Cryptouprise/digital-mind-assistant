@@ -1,6 +1,5 @@
-
-import { useState } from 'react';
-import { Send, Loader2 } from "lucide-react";
+import { useState, useEffect } from 'react';
+import { Send, Loader2, Sparkles, ClipboardList, Megaphone, PlayIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,11 +7,22 @@ import { toast } from "sonner";
 import { parseJarvisCommand } from "@/utils/parseJarvisCommand";
 import { jarvisActions } from "@/utils/jarvisActions";
 import { ghlClient } from "@/utils/ghlClient";
+import { Card } from "@/components/ui/card";
 
 export default function JarvisChat() {
   const [input, setInput] = useState('');
   const [chatLog, setChatLog] = useState<{ user: string; bot: string }[]>([]);
   const [loading, setLoading] = useState(false);
+  const [branding, setBranding] = useState<{ company: string } | null>(null);
+
+  useEffect(() => {
+    supabase.from('settings').select('*')
+      .eq('key', 'company_name')
+      .single()
+      .then(({ data, error }) => {
+        if (data && !error) setBranding({ company: data.value });
+      });
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,7 +31,6 @@ export default function JarvisChat() {
     const userPrompt = input;
     setInput('');
 
-    // Add user message immediately to improve UX
     setChatLog((prev) => [...prev, { user: userPrompt, bot: '...' }]);
 
     try {
@@ -41,22 +50,18 @@ export default function JarvisChat() {
 
       const response = data?.response || "No response received";
 
-      // Process any commands in the response
       const parsedCommand = parseJarvisCommand(response);
       
       if (parsedCommand) {
         executeJarvisCommand(parsedCommand);
       }
 
-      // Update the last bot message with the actual response
       setChatLog((prev) => {
         const updated = [...prev];
         updated[updated.length - 1].bot = response;
         return updated;
       });
 
-      // Log the conversation to the database
-      // Use 'from' with a type assertion to work around TypeScript issues
       const { error: logError } = await supabase
         .from('ai_logs' as any)
         .insert({
@@ -89,7 +94,6 @@ export default function JarvisChat() {
       switch (command.action) {
         case 'send-followup':
           if (command.contactId && command.message) {
-            // Use the GHL client to send a follow-up
             await ghlClient.sendFollowUp(command.contactId, command.message);
             toast.success(`Follow-up sent to contact ${command.contactId}`);
           }
@@ -104,7 +108,6 @@ export default function JarvisChat() {
 
         case 'tag-contact':
           if (command.contactId && command.tag) {
-            // Handle the new tag format
             await jarvisActions.addTag(command.contactId, command.tag);
             toast.success(`Tagged contact ${command.contactId} as ${command.tag}`);
           }
@@ -119,7 +122,6 @@ export default function JarvisChat() {
 
         case 'move-stage':
           if (command.contactId && command.stage) {
-            // Handle the new stage movement format
             await jarvisActions.movePipelineStage(command.contactId, command.stage);
             toast.success(`Moved contact ${command.contactId} to stage ${command.stage}`);
           }
@@ -155,8 +157,62 @@ export default function JarvisChat() {
     }
   };
 
+  const handlePlayAudio = () => {
+    toast.info("Audio playback not yet implemented");
+  };
+
   return (
     <div className="p-4 h-full flex flex-col">
+      <div className="mb-4">
+        <h2 className="text-2xl font-bold mb-2 text-white">Jarvis Assistant</h2>
+        <p className="text-sm text-slate-300">For {branding?.company || 'Your Business'}</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        <Card className="p-4 shadow-md hover:shadow-lg cursor-pointer bg-slate-800 border-slate-700 text-white" 
+              onClick={() => setInput('Generate a follow-up for the last meeting')}>
+          <div className="flex items-center gap-3">
+            <Sparkles className="text-blue-400" size={20} />
+            <div>
+              <p className="font-semibold">Smart Follow-Up</p>
+              <p className="text-sm text-slate-300">AI-generated based on conversation history</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4 shadow-md hover:shadow-lg cursor-pointer bg-slate-800 border-slate-700 text-white" 
+              onClick={() => setInput('Summarize the last call with highlights')}>
+          <div className="flex items-center gap-3">
+            <ClipboardList className="text-blue-400" size={20} />
+            <div>
+              <p className="font-semibold">Summarize Call</p>
+              <p className="text-sm text-slate-300">Objections, insights, and tone detected</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4 shadow-md hover:shadow-lg cursor-pointer bg-slate-800 border-slate-700 text-white" 
+              onClick={() => setInput('Launch onboarding campaign for John123')}>
+          <div className="flex items-center gap-3">
+            <Megaphone className="text-blue-400" size={20} />
+            <div>
+              <p className="font-semibold">Launch Campaign</p>
+              <p className="text-sm text-slate-300">Trigger automation from this panel</p>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      <Card className="p-4 mb-6 shadow-md bg-slate-800 border-slate-700 text-white">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-lg font-semibold">Last Meeting Summary</h3>
+          <button 
+            className="text-sm text-blue-400 hover:text-blue-300 flex items-center" 
+            onClick={handlePlayAudio}>
+            <PlayIcon className="mr-1" size={16} /> Play Recording
+          </button>
+        </div>
+        <p className="text-slate-300">Key points: Objections, product interest, next steps</p>
+      </Card>
+
       <div className="flex-1 overflow-y-auto space-y-4 mb-4">
         {chatLog.length === 0 ? (
           <div className="text-center text-slate-400 mt-8">
@@ -177,6 +233,7 @@ export default function JarvisChat() {
           ))
         )}
       </div>
+
       <form onSubmit={handleSubmit} className="mt-auto flex gap-2 items-end">
         <Textarea
           className="flex-grow bg-slate-800 border-slate-700 resize-none text-white placeholder:text-slate-400"
