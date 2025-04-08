@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from "react";
-import { Mic, MicOff, Activity } from "lucide-react";
+import { Mic, MicOff, Activity, Waveform } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -24,11 +24,13 @@ const VoiceRecognition: React.FC<VoiceRecognitionProps> = ({
   disabled = false,
 }) => {
   const [interimTranscript, setInterimTranscript] = useState("");
+  const [visualFeedback, setVisualFeedback] = useState<number[]>([]);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const speechTimeoutRef = useRef<number | null>(null);
   const lastTranscriptRef = useRef<string>("");
   const processingRef = useRef<boolean>(false);
   const restartTimeoutRef = useRef<number | null>(null);
+  const feedbackIntervalRef = useRef<number | null>(null);
   
   const isRecognitionSupported = 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
 
@@ -43,6 +45,7 @@ const VoiceRecognition: React.FC<VoiceRecognitionProps> = ({
       
       recognitionRef.current.onstart = () => {
         console.log('Speech recognition started');
+        startVisualFeedback();
       };
 
       recognitionRef.current.onresult = (event: SpeechRecognitionEvent) => {
@@ -77,14 +80,14 @@ const VoiceRecognition: React.FC<VoiceRecognitionProps> = ({
             window.clearTimeout(speechTimeoutRef.current);
           }
           
-          // Process speech after a short pause (600ms - shorter than before for more responsiveness)
+          // Process speech after a short pause (500ms)
           speechTimeoutRef.current = window.setTimeout(() => {
             if (interimText.trim() && !processingRef.current) {
               processingRef.current = true;
               onTranscriptFinalized(interimText.trim());
               setInterimTranscript("");
             }
-          }, 600);
+          }, 500);
         }
       };
 
@@ -92,7 +95,7 @@ const VoiceRecognition: React.FC<VoiceRecognitionProps> = ({
         console.error('Speech recognition error:', event.error);
         
         if (event.error === 'no-speech') {
-          // Don't show toast for no-speech as it's common and not a critical error
+          // Don't show toast for no-speech as it's common
           console.log('No speech detected');
         } else if (event.error === 'audio-capture') {
           toast.error("No microphone detected. Please check your device.");
@@ -103,7 +106,6 @@ const VoiceRecognition: React.FC<VoiceRecognitionProps> = ({
         } else if (event.error === 'network') {
           toast.error("Network error. Please check your connection.");
         } else if (event.error !== 'aborted') {
-          // Don't show error for intentional aborts
           toast.error(`Speech recognition error: ${event.error}`);
         }
       };
@@ -113,7 +115,6 @@ const VoiceRecognition: React.FC<VoiceRecognitionProps> = ({
         
         // Auto restart if it's supposed to be listening and not speaking
         if (isListening && !isSpeaking && !processingRef.current) {
-          // Add a small delay to prevent rapid restarts but make it shorter for responsiveness
           restartTimeoutRef.current = window.setTimeout(() => {
             try {
               if (recognitionRef.current && isListening && !isSpeaking) {
@@ -129,6 +130,8 @@ const VoiceRecognition: React.FC<VoiceRecognitionProps> = ({
     }
 
     return () => {
+      stopVisualFeedback();
+      
       if (speechTimeoutRef.current) {
         window.clearTimeout(speechTimeoutRef.current);
       }
@@ -147,12 +150,34 @@ const VoiceRecognition: React.FC<VoiceRecognitionProps> = ({
     };
   }, [isRecognitionSupported]);
 
+  // Start generating visual feedback when listening
+  const startVisualFeedback = () => {
+    if (feedbackIntervalRef.current) return;
+    
+    feedbackIntervalRef.current = window.setInterval(() => {
+      setVisualFeedback(prevState => {
+        // Generate random values between 10-80 for the wave visualization
+        return Array.from({ length: 12 }, () => Math.floor(Math.random() * 70) + 10);
+      });
+    }, 150);
+  };
+  
+  // Stop visual feedback
+  const stopVisualFeedback = () => {
+    if (feedbackIntervalRef.current) {
+      window.clearInterval(feedbackIntervalRef.current);
+      feedbackIntervalRef.current = null;
+      setVisualFeedback([]);
+    }
+  };
+
   // Effect to handle speech recognition start/stop based on isListening and isSpeaking states
   useEffect(() => {
     if (isListening && recognitionRef.current && !isSpeaking && !processingRef.current) {
       try {
         recognitionRef.current.start();
         console.log('Started speech recognition');
+        startVisualFeedback();
       } catch (e) {
         console.error('Error starting speech recognition:', e);
         toast.error("Failed to start listening. Please try again.");
@@ -163,9 +188,15 @@ const VoiceRecognition: React.FC<VoiceRecognitionProps> = ({
         recognitionRef.current.stop();
         console.log('Stopped speech recognition');
         setInterimTranscript("");
+        stopVisualFeedback();
       } catch (e) {
         console.error('Error stopping speech recognition:', e);
       }
+    }
+    
+    // If we're not listening anymore, stop the visual feedback
+    if (!isListening) {
+      stopVisualFeedback();
     }
   }, [isListening, isSpeaking]);
 
@@ -174,7 +205,14 @@ const VoiceRecognition: React.FC<VoiceRecognitionProps> = ({
     if (!isSpeaking) {
       processingRef.current = false;
     }
-  }, [isSpeaking]);
+    
+    // If AI is speaking, we pause the visual feedback
+    if (isSpeaking && isListening) {
+      stopVisualFeedback();
+    } else if (isListening && !isSpeaking && !feedbackIntervalRef.current) {
+      startVisualFeedback();
+    }
+  }, [isSpeaking, isListening]);
 
   const startListening = () => {
     if (!isRecognitionSupported) {
@@ -200,6 +238,7 @@ const VoiceRecognition: React.FC<VoiceRecognitionProps> = ({
 
   const stopListening = () => {
     setIsListening(false);
+    stopVisualFeedback();
     
     // Clear timeouts
     if (speechTimeoutRef.current) {
@@ -222,10 +261,16 @@ const VoiceRecognition: React.FC<VoiceRecognitionProps> = ({
   return (
     <>
       {isListening && (
-        <div className={`mb-3 p-3 ${interimTranscript ? "bg-green-900/20 border border-green-500/30" : "bg-slate-900/40 border border-slate-700/30"} rounded-md transition-colors duration-300`}>
+        <div className={`mb-3 p-3 ${
+          interimTranscript 
+            ? "bg-green-900/20 border border-green-500/30" 
+            : "bg-slate-900/40 border border-slate-700/30"
+        } rounded-md transition-colors duration-300`}>
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2">
-              <Activity className={`h-4 w-4 ${interimTranscript ? "text-green-400 animate-pulse" : "text-slate-400"}`} />
+              <Activity className={`h-4 w-4 ${
+                interimTranscript ? "text-green-400 animate-pulse" : "text-slate-400"
+              }`} />
               <span className="text-sm font-medium text-white">
                 {interimTranscript ? "Hearing you..." : "Listening..."}
               </span>
@@ -234,6 +279,19 @@ const VoiceRecognition: React.FC<VoiceRecognitionProps> = ({
               <span className="text-xs text-amber-300 animate-pulse">Jarvis is speaking...</span>
             )}
           </div>
+          
+          {/* Voice visualization when listening */}
+          {isListening && !interimTranscript && visualFeedback.length > 0 && (
+            <div className="flex items-end justify-center gap-1 h-12 bg-slate-900/50 rounded-md p-2 mt-1">
+              {visualFeedback.map((height, idx) => (
+                <div 
+                  key={idx}
+                  className="w-1 bg-blue-500 animate-pulse rounded-t"
+                  style={{ height: `${height}%` }}
+                ></div>
+              ))}
+            </div>
+          )}
           
           {interimTranscript && (
             <div className="bg-slate-900/50 p-2 rounded border border-slate-700/50 mt-1">
@@ -251,7 +309,7 @@ const VoiceRecognition: React.FC<VoiceRecognitionProps> = ({
         onClick={isListening ? stopListening : startListening}
         disabled={disabled}
         title={isListening ? "Stop listening" : "Start voice input"}
-        className={isListening ? "animate-pulse" : ""}
+        className={`${isListening ? "animate-pulse ring-2 ring-red-500/50" : ""} transition-all duration-300`}
       >
         {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
       </Button>

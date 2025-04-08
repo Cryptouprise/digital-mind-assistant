@@ -7,6 +7,9 @@ import VoiceRecognition from "./chat/VoiceRecognition";
 import MessageList from "./chat/MessageList";
 import InputArea from "./chat/InputArea";
 import AudioToggle from "./chat/AudioToggle";
+import { Bot, Sparkles } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 interface Message {
   sender: string;
@@ -21,6 +24,7 @@ const ChatBot = () => {
   const [isListening, setIsListening] = useState(false);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [voiceProcessing, setVoiceProcessing] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isMobile = useBreakpoint(768);
   const lastTranscriptRef = useRef<string>("");
@@ -28,11 +32,24 @@ const ChatBot = () => {
   const responseQueueRef = useRef<{text: string}[]>([]);
   const isPlayingRef = useRef<boolean>(false);
   
+  // Mock contact context for demo purposes
+  const contactContext = {
+    id: "CONT12345",
+    name: "John Smith",
+    stage: "Qualified Lead",
+    tags: ["interested", "follow-up", "high-value"]
+  };
+  
   useEffect(() => {
     // Initialize audio element
     audioRef.current = new Audio();
     audioRef.current.onended = handleAudioEnded;
     audioRef.current.onerror = handleAudioError;
+    
+    // Generate a conversation ID if none exists
+    if (!conversationId) {
+      setConversationId(crypto.randomUUID());
+    }
     
     // Clean up on component unmount
     return () => {
@@ -88,7 +105,11 @@ const ChatBot = () => {
 
     try {
       const { data, error } = await supabase.functions.invoke('chat', {
-        body: { message: input }
+        body: { 
+          message: input,
+          conversationId,
+          contactContext
+        }
       });
 
       setIsLoading(false);
@@ -105,6 +126,11 @@ const ChatBot = () => {
         const botResponse = data.response;
         const botMessage = { sender: "jarvis", text: botResponse };
         setMessages((prev) => [...prev, botMessage]);
+        
+        // Update conversation ID if returned from backend
+        if (data.conversationId) {
+          setConversationId(data.conversationId);
+        }
         
         // Speak the response if audio is enabled
         if (audioEnabled) {
@@ -218,7 +244,11 @@ const ChatBot = () => {
     try {
       // Call chat function
       const { data: chatData, error: chatError } = await supabase.functions.invoke('chat', {
-        body: { message: text }
+        body: { 
+          message: text,
+          conversationId,
+          contactContext
+        }
       });
 
       if (chatError) {
@@ -234,6 +264,11 @@ const ChatBot = () => {
         const botResponse = chatData.response;
         const botMessage = { sender: "jarvis", text: botResponse };
         setMessages((prev) => [...prev, botMessage]);
+        
+        // Update conversation ID if returned from backend
+        if (chatData.conversationId) {
+          setConversationId(chatData.conversationId);
+        }
         
         // Speak response if audio is enabled
         if (audioEnabled) {
@@ -268,43 +303,23 @@ const ChatBot = () => {
   };
 
   return (
-    <div className="p-4 border rounded-lg shadow-sm max-w-2xl mx-auto bg-slate-800">
-      <div className="flex items-center justify-between mb-2">
-        <h2 className="text-xl font-bold flex items-center text-white">
-          <span className="mr-2">Jarvis Assistant</span>
-          {(isLoading || voiceProcessing || isSpeaking) && (
-            <span className="inline-block w-4 h-4 border-2 border-t-transparent border-blue-600 rounded-full animate-spin"></span>
-          )}
-        </h2>
-        <div className="flex gap-2">
-          <AudioToggle 
-            audioEnabled={audioEnabled} 
-            toggleAudio={toggleAudio} 
-          />
-          <VoiceRecognition 
-            isListening={isListening}
-            setIsListening={setIsListening}
-            isSpeaking={isSpeaking}
-            onTranscriptFinalized={processVoiceInput}
-            disabled={isLoading || voiceProcessing || (isSpeaking && isListening)}
-          />
-        </div>
-      </div>
-      
-      <MessageList 
-        messages={messages} 
-        isSpeaking={isSpeaking} 
-      />
-      
-      <div className="flex flex-col sm:flex-row gap-2">
-        <InputArea 
-          input={input}
-          setInput={setInput}
-          sendMessage={sendMessage}
-          isDisabled={isLoading || voiceProcessing}
-        />
-        <div className="flex gap-2 md:hidden">
-          {!isMobile && (
+    <Card className="border-slate-700 shadow-lg bg-gradient-to-b from-slate-800 to-slate-900">
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Bot className="h-5 w-5 text-blue-400" />
+            <CardTitle className="text-xl flex items-center gap-2">
+              Jarvis Assistant
+              <Badge variant="outline" className="ml-2 bg-blue-900/30 text-blue-400 border-blue-500/20">
+                AI Powered
+              </Badge>
+            </CardTitle>
+          </div>
+          <div className="flex gap-2">
+            <AudioToggle 
+              audioEnabled={audioEnabled} 
+              toggleAudio={toggleAudio} 
+            />
             <VoiceRecognition 
               isListening={isListening}
               setIsListening={setIsListening}
@@ -312,10 +327,66 @@ const ChatBot = () => {
               onTranscriptFinalized={processVoiceInput}
               disabled={isLoading || voiceProcessing || (isSpeaking && isListening)}
             />
-          )}
+          </div>
         </div>
-      </div>
-    </div>
+
+        {contactContext && (
+          <div className="mt-2 p-2 border border-blue-500/20 rounded-md bg-blue-950/20 text-xs">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-3 w-3 text-blue-400" />
+                <span className="text-blue-300">Contact Context Active</span>
+              </div>
+              <span className="text-blue-400 font-medium">{contactContext.name}</span>
+            </div>
+            <div className="mt-1 flex flex-wrap gap-1">
+              <Badge variant="secondary" className="bg-slate-700/50 text-xs">
+                {contactContext.stage}
+              </Badge>
+              {contactContext.tags.map((tag, i) => (
+                <Badge key={i} variant="outline" className="text-xs bg-slate-700/50">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
+      </CardHeader>
+      
+      <CardContent>
+        <MessageList 
+          messages={messages} 
+          isSpeaking={isSpeaking} 
+        />
+        
+        <div className="flex flex-col sm:flex-row gap-2">
+          <InputArea 
+            input={input}
+            setInput={setInput}
+            sendMessage={sendMessage}
+            isDisabled={isLoading || voiceProcessing}
+          />
+          <div className="flex gap-2 md:hidden">
+            {!isMobile && (
+              <VoiceRecognition 
+                isListening={isListening}
+                setIsListening={setIsListening}
+                isSpeaking={isSpeaking}
+                onTranscriptFinalized={processVoiceInput}
+                disabled={isLoading || voiceProcessing || (isSpeaking && isListening)}
+              />
+            )}
+          </div>
+        </div>
+        
+        {/* Conversation ID indicator */}
+        {conversationId && (
+          <div className="mt-2 text-xs text-slate-500 text-right">
+            Conversation ID: {conversationId.slice(0, 8)}...
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 };
 
