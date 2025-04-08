@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import Navigation from "@/components/Navigation";
@@ -12,7 +13,10 @@ import {
   ArrowUp,
   Clock,
   CheckCircle,
-  LineChart
+  LineChart,
+  Users,
+  BarChart2,
+  Zap
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -22,6 +26,10 @@ import { Meeting, fetchMeeting, fetchMeetings } from "@/utils/symblClient";
 import NotificationCenter from "@/components/NotificationCenter";
 import LeadSmartCard from "@/components/LeadSmartCard";
 import { LeadProps } from "@/components/LeadSmartCard";
+import MetricsCard from "@/components/MetricsCard";
+import RecentMeetingSummary from "@/components/RecentMeetingSummary";
+import GHLIntegrations from "@/components/GHLIntegrations";
+import { toast } from "sonner";
 
 const Index = () => {
   const isMobile = useIsMobile();
@@ -36,81 +44,60 @@ const Index = () => {
   const [highPriorityLeads, setHighPriorityLeads] = useState<LeadProps[]>([
     { name: 'Jane Doe', email: 'jane@example.com', stage: 'Discovery', status: 'Hot', lastTouch: '2 days ago' },
     { name: 'Mark Price', email: 'mark@brand.io', stage: 'Proposal', status: 'Warm', lastTouch: '5 days ago' },
+    { name: 'Sarah Johnson', email: 'sarah@example.org', stage: 'Negotiation', status: 'Hot', lastTouch: '1 day ago' },
+    { name: 'Alex Wong', email: 'alex@company.net', stage: 'Discovery', status: 'Warm', lastTouch: '3 days ago' },
   ]);
   
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      setIsLoading(true);
-      try {
-        // Fetch dashboard stats
-        const { data: statsData, error: statsError } = await supabase.functions.invoke('dashboard-stats');
-        
-        if (statsError) {
-          console.error("Error fetching dashboard stats:", statsError);
-        } else if (statsData) {
-          setLiveStats({
-            meetings: statsData.meetings || 0,
-            campaigns: statsData.campaigns || 0,
-            followUps: statsData.followUps || 0,
-            lastMeeting: null
-          });
-        }
-        
-        // Fetch meetings
-        const meetings = await fetchMeetings();
-        
-        // Get latest meeting with a summary
-        const completedMeetings = meetings.filter(m => 
-          m.status === 'completed' && m.summary);
-          
-        let lastMeeting = null;
-        let summaryText = "No recent meeting summaries available.";
-        
-        if (completedMeetings.length > 0) {
-          lastMeeting = completedMeetings[0];
-          summaryText = lastMeeting.summary || summaryText;
-          
-          setLiveStats(prev => ({
-            ...prev,
-            lastMeeting
-          }));
-        }
-        
-        setLatestMeetingSummary(summaryText);
-      } catch (error) {
-        console.error("Error fetching dashboard data:", error);
-      } finally {
-        setIsLoading(false);
+  const fetchDashboardData = async () => {
+    setIsLoading(true);
+    try {
+      // Fetch dashboard stats
+      const { data: statsData, error: statsError } = await supabase.functions.invoke('dashboard-stats');
+      
+      if (statsError) {
+        console.error("Error fetching dashboard stats:", statsError);
+        toast.error("Failed to load dashboard statistics");
+      } else if (statsData) {
+        setLiveStats({
+          meetings: statsData.meetings || 0,
+          campaigns: statsData.campaigns || 0,
+          followUps: statsData.followUps || 0,
+          lastMeeting: null
+        });
       }
-    };
-    
+      
+      // Fetch meetings
+      const meetings = await fetchMeetings();
+      
+      // Get latest meeting with a summary
+      const completedMeetings = meetings.filter(m => 
+        m.status === 'completed' && m.summary);
+        
+      let lastMeeting = null;
+      let summaryText = "No recent meeting summaries available.";
+      
+      if (completedMeetings.length > 0) {
+        lastMeeting = completedMeetings[0];
+        summaryText = lastMeeting.summary || summaryText;
+        
+        setLiveStats(prev => ({
+          ...prev,
+          lastMeeting
+        }));
+      }
+      
+      setLatestMeetingSummary(summaryText);
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+      toast.error("Error loading dashboard data");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  useEffect(() => {
     fetchDashboardData();
   }, []);
-  
-  // Updated stats data to reflect project completion and live data
-  const stats = [
-    { 
-      title: "Meetings Processed", 
-      value: isLoading ? "Loading..." : liveStats.meetings.toString(), 
-      change: "Synced", 
-      trend: "up", 
-      description: "Total recorded meetings"
-    },
-    { 
-      title: "Active Campaigns", 
-      value: isLoading ? "Loading..." : liveStats.campaigns.toString(), 
-      change: "Active", 
-      trend: "up", 
-      description: "Marketing campaigns" 
-    },
-    { 
-      title: "Follow-ups Generated", 
-      value: isLoading ? "Loading..." : liveStats.followUps.toString(), 
-      change: "Ready", 
-      trend: "up", 
-      description: "From conversations" 
-    }
-  ];
   
   return (
     <div className="min-h-screen bg-slate-900 text-white">
@@ -127,25 +114,35 @@ const Index = () => {
 
           {/* Stats Section */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            {stats.map((stat, index) => (
-              <Card key={index} className="bg-slate-800 border-slate-700 text-white">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-400">{stat.title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="text-2xl font-bold">{stat.value}</p>
-                      <p className="text-xs text-gray-500">{stat.description}</p>
-                    </div>
-                    <div className="flex items-center text-green-400">
-                      <CheckCircle className="h-5 w-5 mr-1" />
-                      <span>{stat.change}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+            <MetricsCard
+              title="Meetings Processed"
+              value={isLoading ? "Loading..." : liveStats.meetings}
+              icon={<CalendarCheck className="h-5 w-5 text-blue-400" />}
+              trend="up"
+              description="Total recorded meetings"
+              isLoading={isLoading}
+            />
+            <MetricsCard
+              title="Active Campaigns"
+              value={isLoading ? "Loading..." : liveStats.campaigns}
+              icon={<BarChart2 className="h-5 w-5 text-green-400" />}
+              trend="neutral"
+              description="Marketing campaigns"
+              isLoading={isLoading}
+            />
+            <MetricsCard
+              title="Follow-ups Generated"
+              value={isLoading ? "Loading..." : liveStats.followUps}
+              icon={<MessageSquareText className="h-5 w-5 text-yellow-400" />}
+              trend="up"
+              description="From conversations"
+              isLoading={isLoading}
+            />
+          </div>
+
+          {/* GHL Actions */}
+          <div className="mb-8">
+            <GHLIntegrations />
           </div>
 
           {/* Notifications */}
@@ -153,41 +150,60 @@ const Index = () => {
             <NotificationCenter />
           </div>
 
-          {/* Symbl Meeting Summary */}
-          <Card className="bg-slate-800 border-slate-700 text-white mb-8">
-            <CardHeader className="bg-gradient-to-r from-blue-900 to-slate-800">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <LineChart className="h-5 w-5 text-blue-400" />
-                Latest Meeting Summary
-              </CardTitle>
-              <CardDescription className="text-gray-400">
-                {isLoading ? "Loading meeting data..." : (liveStats.lastMeeting ? 
-                  `From "${liveStats.lastMeeting.title}" on ${new Date(liveStats.lastMeeting.date).toLocaleDateString()}` : 
-                  "No recent meetings with summaries")}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-4">
-              {isLoading ? (
-                <div className="flex items-center justify-center p-4">
-                  <p className="text-gray-400">Loading summary data...</p>
-                </div>
-              ) : (
-                <div className="bg-slate-700/50 p-4 rounded-md">
-                  <p className="text-sm whitespace-pre-line text-slate-300">
-                    {latestMeetingSummary}
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          {/* Two Column Layout for Summary and Leads */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <div className="lg:col-span-2">
+              <RecentMeetingSummary 
+                meeting={liveStats.lastMeeting}
+                isLoading={isLoading}
+                onRefresh={fetchDashboardData}
+              />
+            </div>
+            
+            <div className="lg:col-span-1">
+              <Card className="bg-slate-800 border-slate-700 text-white h-full">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="h-5 w-5 text-blue-400" />
+                    Action Items
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3 text-sm">
+                  <div className="p-3 bg-blue-900/20 rounded-lg border border-blue-800/30 flex items-start space-x-3">
+                    <CheckCircle className="h-5 w-5 text-blue-400 mt-0.5" />
+                    <div>
+                      <p className="font-medium">Follow up with Mark Price</p>
+                      <p className="text-xs text-slate-400">Due in 2 days</p>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-yellow-900/20 rounded-lg border border-yellow-800/30 flex items-start space-x-3">
+                    <CheckCircle className="h-5 w-5 text-yellow-400 mt-0.5" />
+                    <div>
+                      <p className="font-medium">Send proposal to Jane Doe</p>
+                      <p className="text-xs text-slate-400">Due tomorrow</p>
+                    </div>
+                  </div>
+                  
+                  <div className="p-3 bg-green-900/20 rounded-lg border border-green-800/30 flex items-start space-x-3">
+                    <CheckCircle className="h-5 w-5 text-green-400 mt-0.5" />
+                    <div>
+                      <p className="font-medium">Schedule demo with Acme Co</p>
+                      <p className="text-xs text-slate-400">Due in 5 days</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
 
           {/* High Priority Leads */}
           <div className="mb-8">
             <h2 className="text-xl font-bold mb-4 flex items-center">
-              <Activity className="h-5 w-5 text-blue-400 mr-2" />
+              <Users className="h-5 w-5 text-blue-400 mr-2" />
               High Priority Leads
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {highPriorityLeads.map((lead, i) => (
                 <LeadSmartCard key={i} lead={lead} />
               ))}
@@ -233,7 +249,7 @@ const Index = () => {
           </div>
 
           <h2 className="text-xl font-bold mb-4 flex items-center">
-            <Activity className="h-5 w-5 text-blue-400 mr-2" />
+            <Zap className="h-5 w-5 text-blue-400 mr-2" />
             Quick Actions
           </h2>
 
