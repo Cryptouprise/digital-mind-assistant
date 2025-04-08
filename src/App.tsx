@@ -15,6 +15,7 @@ import History from "./pages/History";
 import Leads from "./pages/Leads";
 import Search from "./pages/Search";
 import Admin from "./pages/Admin";
+import CommandCenter from "./pages/CommandCenter";
 
 const queryClient = new QueryClient();
 
@@ -35,6 +36,7 @@ const App = () => (
               <Route path="/leads" element={<Leads />} />
               <Route path="/search" element={<Search />} />
               <Route path="/admin" element={<Admin />} />
+              <Route path="/command-center" element={<CommandCenter />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

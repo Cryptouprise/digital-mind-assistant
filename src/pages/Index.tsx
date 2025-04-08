@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import Navigation from "@/components/Navigation";
@@ -16,7 +15,8 @@ import {
   LineChart,
   Users,
   BarChart2,
-  Zap
+  Zap,
+  Terminal
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -51,7 +51,6 @@ const Index = () => {
   const fetchDashboardData = async () => {
     setIsLoading(true);
     try {
-      // Fetch dashboard stats
       const { data: statsData, error: statsError } = await supabase.functions.invoke('dashboard-stats');
       
       if (statsError) {
@@ -66,10 +65,8 @@ const Index = () => {
         });
       }
       
-      // Fetch meetings
       const meetings = await fetchMeetings();
       
-      // Get latest meeting with a summary
       const completedMeetings = meetings.filter(m => 
         m.status === 'completed' && m.summary);
         
@@ -112,7 +109,6 @@ const Index = () => {
             <p className="text-gray-400 mt-1">Your digital mind assistant</p>
           </div>
 
-          {/* Stats Section */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
             <MetricsCard
               title="Meetings Processed"
@@ -140,17 +136,59 @@ const Index = () => {
             />
           </div>
 
-          {/* GHL Actions */}
+          <div className="mb-8">
+            <Card className="bg-gradient-to-r from-slate-800 to-slate-900 border-slate-700 text-white overflow-hidden">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="md:col-span-2 p-6 flex flex-col justify-center">
+                  <h2 className="text-xl md:text-2xl font-bold flex items-center gap-2 mb-4">
+                    <Terminal className="h-6 w-6 text-blue-400" />
+                    <span className="bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent">
+                      New! Jarvis Command Center
+                    </span>
+                  </h2>
+                  <p className="text-gray-300 mb-4">
+                    Access all of Jarvis's advanced features in one place. Voice commands, automations, realtime analytics, and direct GHL actions.
+                  </p>
+                  <div className="flex flex-wrap gap-4">
+                    <Link to="/command-center">
+                      <Button className="bg-blue-600 hover:bg-blue-700">
+                        Open Command Center
+                      </Button>
+                    </Link>
+                    <Link to="/chat">
+                      <Button variant="outline" className="border-slate-600">
+                        <MessageSquareText className="mr-2 h-4 w-4" />
+                        Try Voice Chat
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+                <div className="bg-blue-900/20 p-6 flex items-center justify-center">
+                  <div className="grid grid-cols-4 gap-2">
+                    {[...Array(16)].map((_, i) => (
+                      <div 
+                        key={i}
+                        className="h-4 bg-blue-500/80 rounded-full animate-pulse"
+                        style={{ 
+                          animationDelay: `${i * 0.1}s`, 
+                          height: `${Math.floor(Math.random() * 30) + 10}px` 
+                        }}
+                      ></div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+
           <div className="mb-8">
             <GHLIntegrations />
           </div>
 
-          {/* Notifications */}
           <div className="mb-8">
             <NotificationCenter />
           </div>
 
-          {/* Two Column Layout for Summary and Leads */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
             <div className="lg:col-span-2">
               <RecentMeetingSummary 
@@ -197,7 +235,6 @@ const Index = () => {
             </div>
           </div>
 
-          {/* High Priority Leads */}
           <div className="mb-8">
             <h2 className="text-xl font-bold mb-4 flex items-center">
               <Users className="h-5 w-5 text-blue-400 mr-2" />
@@ -210,7 +247,6 @@ const Index = () => {
             </div>
           </div>
 
-          {/* Recent Activity */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div className="md:col-span-2">
               <Roadmap />
@@ -253,7 +289,7 @@ const Index = () => {
             Quick Actions
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Link to="/chat" className="block hover:no-underline">
               <Card className="bg-slate-800 border-slate-700 text-white hover:bg-slate-700 transition-colors h-full">
                 <CardHeader className="pb-2">
@@ -267,6 +303,23 @@ const Index = () => {
                 </CardHeader>
                 <CardContent>
                   <p className="text-gray-400">Get answers to questions and take actions through natural language</p>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link to="/command-center" className="block hover:no-underline">
+              <Card className="bg-slate-800 border-blue-700 text-white hover:bg-slate-700 transition-colors h-full border-2">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2">
+                    <Terminal className="h-5 w-5 text-blue-400" />
+                    <span>Command Center</span>
+                  </CardTitle>
+                  <CardDescription className="text-blue-300">
+                    NEW! Advanced controls
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-400">Access voice commands, automations, and direct GHL actions in one place</p>
                 </CardContent>
               </Card>
             </Link>
