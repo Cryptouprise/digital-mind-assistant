@@ -23,21 +23,25 @@ const MetricsCard: React.FC<MetricsCardProps> = ({
 }) => {
   return (
     <Card 
-      className={`bg-slate-800 border-slate-700 text-white hover:bg-slate-750 transition-colors ${onClick ? 'cursor-pointer' : ''}`}
+      className={`bg-slate-800 border-slate-700 text-white hover:bg-slate-750 transition-all duration-200 ${onClick ? 'cursor-pointer transform hover:scale-[1.02] hover:shadow-lg' : ''}`}
       onClick={onClick}
     >
       <CardContent className="p-6">
         <div className="flex justify-between items-start">
           <div>
             <div className="text-sm font-medium text-gray-400">{title}</div>
-            <div className="text-2xl font-bold mt-1">
-              {isLoading ? "Loading..." : value}
+            <div className="text-2xl font-bold mt-1 group-hover:text-blue-400 transition-colors">
+              {isLoading ? (
+                <div className="h-7 w-16 bg-slate-700 animate-pulse rounded"></div>
+              ) : (
+                value
+              )}
             </div>
             {description && (
               <div className="text-xs text-gray-500 mt-1">{description}</div>
             )}
           </div>
-          <div className="rounded-full bg-slate-700/50 p-2">
+          <div className="rounded-full bg-slate-700/50 p-2 group-hover:bg-blue-900/20 transition-colors">
             {icon}
           </div>
         </div>
